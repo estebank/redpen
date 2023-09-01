@@ -10,23 +10,8 @@ macro_rules! def {
 }
 
 def! {
-    Waker,
-    Write,
-    adjust,
     disallow,
     dont_panic,
-    drop_preempt_count,
-    dump_mir,
-    error,
-    expect,
-    index,
     redpen,
-    preempt_count,
-    report_preempt_count,
-    task,
-    unchecked,
-    wake,
-    wake_by_ref,
     wont_panic,
-    write,
 }

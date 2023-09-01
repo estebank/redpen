@@ -399,7 +399,9 @@ impl<'tcx> LateLintPass<'tcx> for DontPanic<'tcx> {
     fn check_crate(&mut self, cx: &LateContext<'tcx>) {
         self.tcx.hir().visit_all_item_likes_in_crate(self);
 
-        for (&def_id, _) in self.map.iter().filter(|(_, values)| !values.is_empty()) {
+        let mut set = self.map.iter().filter(|(_, values)| !values.is_empty()).map(|(&def_id, _)| def_id).collect::<Vec<_>>();
+        set.sort();
+        for def_id in set {
             if let Some(calls) = self.map.get(&def_id) && !calls.is_empty()
                 && let Some(did) = def_id.as_local()
             {

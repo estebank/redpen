@@ -18,9 +18,7 @@ extern crate rustc_index;
 extern crate rustc_infer;
 extern crate rustc_interface;
 extern crate rustc_lint;
-#[macro_use]
 extern crate rustc_macros;
-#[macro_use]
 extern crate rustc_middle;
 extern crate rustc_mir_dataflow;
 extern crate rustc_monomorphize;
@@ -43,20 +41,10 @@ use rustc_session::config::ErrorOutputType;
 use rustc_session::EarlyErrorHandler;
 use std::sync::atomic::Ordering;
 
-#[macro_use]
-mod ctxt;
-
-mod atomic_context;
 mod attribute;
 mod disallow;
-mod infallible_allocation;
-mod mir;
-mod monomorphize_collector;
 mod panic_freedom;
-mod preempt_count;
-mod serde;
 mod symbol;
-mod util;
 
 rustc_session::declare_tool_lint! {
     pub redpen::INCORRECT_ATTRIBUTE,
