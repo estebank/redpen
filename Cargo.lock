@@ -271,7 +271,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "redpen"
+name = "redpen-linter"
 version = "0.1.0"
 dependencies = [
  "compiletest_rs",

@@ -1,5 +1,5 @@
 [package]
-name = "redpen"
+name = "redpen-linter"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -14,3 +14,15 @@ compiletest_rs = { version = "0.10", features = [ "tmp" ] }
 # This crate uses #![feature(rustc_private)] to access `rustc` APIs.
 # We're tied to the specific `rustc` version 1.72.0.
 rustc_private = true
+
+[[bin]]
+path = "commands/redpen.rs"
+name = "redpen"
+
+[[bin]]
+path = "commands/wrapper.rs"
+name = "redpen_wrapper"
+
+[[bin]]
+path = "src/main.rs"
+name = "rustc_redpen"

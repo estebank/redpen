@@ -40,9 +40,9 @@ If you want to keep your own set of lints, then you'll have to keep your own wor
 Clone this repository and run `cargo install`:
 
 ```console
+export LD_LIBRARY_PATH=$(rustup run 1.72.0 bash -c "echo \$LD_LIBRARY_PATH")
 git clone https://github.com/estebank/redpen.git
 cd redpen
-export LD_LIBRARY_PATH=$HOME/.rustup/toolchains/1.72.0-x86_64-unknown-linux-gnu/lib
 cargo install --path .
 ```
 
@@ -59,6 +59,8 @@ This linter is implemented as a `rustc_driver`, effectively a different entry po
 `cargo-redpen` is a small CLI that invokes `cargo build` with the appropriate environement variables. It executes:
 
 ```console
+export LD_LIBRARY_PATH=$(rustup run 1.72.0 bash -c "echo \$LD_LIBRARY_PATH")
+
 RUSTC_WRAPPER=$PATH_TO/redpen_wrapper \
 RUSTC_BOOTSTRAP=1 \
 cargo +1.72.0 build \
