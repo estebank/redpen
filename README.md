@@ -26,7 +26,7 @@ The tool is named after the writing instrument a teacher would use to mark mista
 
 ## Installation and usage
 
-There are two ways of using this tool. If you are only interested in using existing lints, you can install through `cargo` with `cargo install cargo-redpen`. You must ensure that the appropriate Rust 1.72 compiler is installed with `rustup toolchain add 1.72.0`, as `redpen` is tightly coupled with a specific compiler version's internal APIs. Additionally, you must also add the following to your `Cargo.toml` in the `[dependencies]` section:
+There are two ways of using this tool. If you are only interested in using existing lints, you can install through `cargo` with `cargo install redpen-linter`. After that you can invoke `redpen` as if you were invoking `cargo check`. You must ensure that the appropriate Rust 1.72 compiler is installed with `rustup toolchain add 1.72.0`, as `redpen` is tightly coupled with a specific compiler version's internal APIs. Additionally, you must also add the following to your `Cargo.toml` in the `[dependencies]` section:
 
 ```
 [dependencies]
