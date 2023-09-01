@@ -3,6 +3,11 @@ name = "redpen-linter"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
+description = "Rust linter"
+authors = ["Esteban Küber <esteban@kuber.com.ar>"]
+rust-version = "1.72.0"
+documentation = "https://docs.rs/redpen-linter"
+repository = "https://github.com/estebank/redpen"
 
 [dependencies]
 home = "0.5"
