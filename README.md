@@ -1,4 +1,4 @@
-# Red Pen 🖊️
+# Red Pen ️❌🖊
 
 `redpen` is a linter for Rust code.
 
