@@ -1,0 +1,58 @@
+error: type parameter `T` in `Pizza` can't be `Pineapple`
+ --> $DIR/disallow.rs:8:20
+  |
+8 | type Alias = Pizza<Pineapple>; //~ ERROR
+  |                    ^^^^^^^^^
+  |
+  = note: `#[deny(redpen::disallow)]` on by default
+
+error: type parameter `T` in `Pizza` can't be `std::string::String`
+ --> $DIR/disallow.rs:9:21
+  |
+9 | type Alias2 = Pizza<String>; //~ ERROR
+  |                     ^^^^^^
+
+error: type parameter `T` in `Pizza` can't be `Pineapple`
+  --> $DIR/disallow.rs:11:17
+   |
+11 | fn foo(p: Pizza<Pineapple>) -> Pizza<Pineapple> {
+   |                 ^^^^^^^^^
+
+error: type parameter `T` in `Pizza` can't be `Pineapple`
+  --> $DIR/disallow.rs:11:38
+   |
+11 | fn foo(p: Pizza<Pineapple>) -> Pizza<Pineapple> {
+   |                                      ^^^^^^^^^
+
+error: type parameter `T` in `Pizza` can't be `Pineapple`
+  --> $DIR/disallow.rs:12:5
+   |
+12 |     p
+   |     ^ this expression is of type `Pizza<Pineapple>`
+
+error: type parameter `T` in `Pizza` can't be `Pineapple`
+  --> $DIR/disallow.rs:16:13
+   |
+16 |     let _ = Pizza(Pineapple);
+   |             ^^^^^^^^^^^^^^^^ this expression is of type `Pizza<Pineapple>`
+
+error: type parameter `T` in `Pizza` can't be `std::string::String`
+  --> $DIR/disallow.rs:17:13
+   |
+17 |     let _ = Pizza(String::new());
+   |             ^^^^^^^^^^^^^^^^^^^^ this expression is of type `Pizza<std::string::String>`
+
+error: type parameter `T` in `Pizza` can't be `Pineapple`
+  --> $DIR/disallow.rs:19:26
+   |
+19 |     let _ = &vec!(Pizza(&Pizza(Pineapple)));
+   |                          ^^^^^^^^^^^^^^^^ this expression is of type `Pizza<Pineapple>`
+
+error: type parameter `T` in `Pizza` can't be `&Pineapple`
+  --> $DIR/disallow.rs:20:26
+   |
+20 |     let _ = &vec!(Pizza(&Pizza(&Pineapple)));
+   |                          ^^^^^^^^^^^^^^^^^ this expression is of type `Pizza<&Pineapple>`
+
+error: aborting due to 9 previous errors
+

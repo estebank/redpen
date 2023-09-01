@@ -1,0 +1,20 @@
+[package]
+name = "redpen"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+#rusqlite = "0.29"
+home = "0.5"
+
+[dependencies.rusqlite]
+version = "0.29.0"
+features = ["bundled"]
+
+[dev-dependencies]
+compiletest_rs = { version = "0.10", features = [ "tmp" ] }
+
+[package.metadata.rust-analyzer]
+# This crate uses #![feature(rustc_private)]
+rustc_private = true

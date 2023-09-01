@@ -1,0 +1,66 @@
+error: `impl_fn` can panic
+  --> $DIR/dont_panic.rs:36:1
+   |
+35 | #[redpen::dont_panic]
+   | --------------------- the function can't panic due to this annotation
+36 | fn impl_fn(x: impl A) {
+   | ^^^^^^^^^^^^^^^^^^^^^ this function can panic
+37 |     x.from_trait();
+   |       ---------- panic can occur here
+38 |     x.from_a_impl();
+   |       ----------- panic can occur here
+   |
+   = note: `#[deny(redpen::dont_panic)]` on by default
+
+error: `trait_object` can panic
+  --> $DIR/dont_panic.rs:41:1
+   |
+40 | #[redpen::dont_panic]
+   | --------------------- the function can't panic due to this annotation
+41 | fn trait_object(x: Box<dyn A>) {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this function can panic
+42 |     x.from_trait();
+   |       ---------- panic can occur here
+43 |     x.from_a_impl();
+   |       ----------- panic can occur here
+
+error: `foo` can panic
+  --> $DIR/dont_panic.rs:47:1
+   |
+46 |   #[redpen::dont_panic]
+   |   --------------------- the function can't panic due to this annotation
+47 |   fn foo() {
+   |   ^^^^^^^^ this function can panic
+48 |       panic!("shouldn't happen!");
+   |       --------------------------- panic can occur here
+49 |       S.foo();
+   |         --- panic can occur here
+50 |       S.from_trait();
+   |         ---------- panic can occur here
+51 |       S.from_a_impl();
+   |         ----------- panic can occur here
+52 |       S.from_impl();
+   |         --------- panic can occur here
+53 | /     (|| {
+54 | |         panic!();
+55 | |     })();
+   | |______- panic can occur here
+56 |       let x =  || panic!();
+57 |       x();
+   |       - panic can occur here
+...
+60 |       let _ = x[1];
+   |               ---- panic can occur here
+
+error: `bar` can panic
+  --> $DIR/dont_panic.rs:65:1
+   |
+64 | #[redpen::dont_panic]
+   | --------------------- the function can't panic due to this annotation
+65 | fn bar() {
+   | ^^^^^^^^ this function can panic
+66 |     foo();
+   |     --- panic can occur here
+
+error: aborting due to 4 previous errors
+
