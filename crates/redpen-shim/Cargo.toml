@@ -1,6 +1,6 @@
 [package]
 name = "redpen-shim"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "A proc-macro attribute provider that allows crates to annotate their code with redpen lints without breaking their build."
 authors = ["Esteban Küber <esteban@kuber.com.ar>"]

@@ -20,18 +20,31 @@ fn main() {
     // We need cargo to let us build std owrselves.
     set_var("RUSTC_BOOTSTRAP", "1");
     // We need to access the existing `rustc` libraries to link to during runtime.
-    set_var(
-        "LD_LIBRARY_PATH",
-        "/home/gh-estebank/.rustup/toolchains/1.72.0-x86_64-unknown-linux-gnu/lib",
-    ); // FIXME get from user's environment
+
+    let output = Command::new("rustup")
+        .args(["target", "list", "--installed"])
+        .output()
+        .expect("failed to execute process");
+    let target = String::from_utf8(output.stdout).unwrap();
+    let target = target.trim();
+    assert!(output.status.success());
+
+    // Get the rustc library path
+    if let Ok(mut path) = home::rustup_home() {
+        path.push("toolchains");
+        path.push(&format!("1.72.0-{target}"));
+        path.push("lib");
+        std::env::set_var("LD_LIBRARY_PATH", path.to_str().unwrap());
+    }
+
     let mut cmd = Command::new("cargo")
         .args([
             "+1.72.0",
             "build",
             "-Zbuild-std",
             "--target",
-            "x86_64-unknown-linux-gnu", // FIXME get from the user's environment
-            "--color=always",           // FIXME check isatty
+            &target,
+            "--color=always", // FIXME check isatty
         ])
         .stdout(Stdio::piped())
         .spawn()

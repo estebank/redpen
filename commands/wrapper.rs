@@ -15,23 +15,6 @@ fn main() {
     let crate_name = x.next();
     let args = args().collect::<Vec<String>>();
 
-    // Get the rustc library path
-    // let output = Command::new(&args[1])
-    //     .args(&args[2..])
-    //     .output()
-    //     .expect("failed to execute process");
-    // if !crate_name.as_deref().map_or(false, |name| {
-    //     !["___", "build_script_build", "redpen"].contains(&name)
-    // }) {
-    //     io::stdout().write_all(&output.stdout).unwrap();
-    //     io::stderr().write_all(&output.stderr).unwrap();
-    // }
-    // assert!(output.status.success());
-
-    std::env::set_var(
-        "LD_LIBRARY_PATH",
-        "/home/gh-estebank/.rustup/toolchains/1.72.0-x86_64-unknown-linux-gnu/lib",
-    ); // FIXME get from user's environment
     let output = Command::new(&args[1])
         .args(&args[2..])
         .output()
