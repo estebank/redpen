@@ -50,6 +50,81 @@ Note that `redpen` is pinned to a Rust version so it is likely that running `car
 
 If you're adding new lints, you will also want to provide your own `redpen` proc-macro crate.
 
+## What it looks like
+
+Given a `src/main.rs` with the following contents:
+
+```rust
+#[redpen::disallow(T = "Pineapple")]
+struct Pizza<T>(T);
+
+struct Pineapple;
+
+#[allow(dead_code)]
+type Alias = Pizza<Pineapple>;
+
+impl Pineapple {
+    fn foo(&self) {
+        panic!("foo");
+    }
+}
+
+#[redpen::dont_panic]
+fn bar() {
+    Pineapple.foo();
+    let mut v = vec![1];
+    v.swap_remove(0);
+    v[1];
+    panic!("asdf");
+}
+
+fn main() {
+    bar();
+    let _ = Pizza(Pineapple);
+}
+```
+
+Executing `redpen` will produce the following output:
+
+```
+$ redpen
+   Compiling pizza v0.1.0 (/home/gh-estebank/pizza)
+error: `bar` can panic
+  --> src/main.rs:16:1
+   |
+15 | #[redpen::dont_panic]
+   | --------------------- the function can't panic due to this annotation
+16 | fn bar() {
+   | ^^^^^^^^ this function can panic
+17 |     Pineapple.foo();
+   |               --- panic can occur here
+18 |     let mut v = vec![1];
+19 |     v.swap_remove(0);
+   |       ----------- panic can occur here
+20 |     v[1];
+   |     ---- panic can occur here
+21 |     panic!("asdf");
+   |     -------------- panic can occur here
+   |
+   = note: `#[deny(redpen::dont_panic)]` on by default
+
+error: type parameter `T` in `Pizza` can't be `Pineapple`
+ --> src/main.rs:7:20
+  |
+7 | type Alias = Pizza<Pineapple>;
+  |                    ^^^^^^^^^
+  |
+  = note: `#[deny(redpen::disallow)]` on by default
+
+error: type parameter `T` in `Pizza` can't be `Pineapple`
+  --> src/main.rs:26:13
+   |
+26 |     let _ = Pizza(Pineapple);
+   |             ^^^^^^^^^^^^^^^^ this expression is of type `Pizza<Pineapple>`
+
+    Finished dev [unoptimized + debuginfo] target(s) in 0.02s
+```
+
 ## How it works
 
 This linter is implemented as a `rustc_driver`, effectively a different entry point to the regular `rustc` implementation. It links against the pre-built `rustc_*` components, so you're only compiling a very small amount of code, keeping its builds quite fast.
