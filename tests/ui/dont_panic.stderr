@@ -2,7 +2,7 @@ error: `impl_fn` can panic
   --> $DIR/dont_panic.rs:36:1
    |
 35 | #[redpen::dont_panic]
-   | --------------------- the function can't panic due to this annotation
+   | --------------------- the function is not allowed to panic due to this annotation
 36 | fn impl_fn(x: impl A) {
    | ^^^^^^^^^^^^^^^^^^^^^ this function can panic
 37 |     x.from_trait();
@@ -16,7 +16,7 @@ error: `trait_object` can panic
   --> $DIR/dont_panic.rs:41:1
    |
 40 | #[redpen::dont_panic]
-   | --------------------- the function can't panic due to this annotation
+   | --------------------- the function is not allowed to panic due to this annotation
 41 | fn trait_object(x: Box<dyn A>) {
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this function can panic
 42 |     x.from_trait();
@@ -28,7 +28,7 @@ error: `foo` can panic
   --> $DIR/dont_panic.rs:47:1
    |
 46 |   #[redpen::dont_panic]
-   |   --------------------- the function can't panic due to this annotation
+   |   --------------------- the function is not allowed to panic due to this annotation
 47 |   fn foo() {
    |   ^^^^^^^^ this function can panic
 48 |       panic!("shouldn't happen!");
@@ -56,7 +56,7 @@ error: `bar` can panic
   --> $DIR/dont_panic.rs:65:1
    |
 64 | #[redpen::dont_panic]
-   | --------------------- the function can't panic due to this annotation
+   | --------------------- the function is not allowed to panic due to this annotation
 65 | fn bar() {
    | ^^^^^^^^ this function can panic
 66 |     foo();

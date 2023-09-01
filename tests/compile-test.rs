@@ -27,7 +27,7 @@ fn run_ui_tests(bless: bool) {
 
     config.src_base = "tests/ui".into();
     config.build_base = PROFILE_PATH.join("test/ui");
-    config.rustc_path = PROFILE_PATH.join("redpen");
+    config.rustc_path = PROFILE_PATH.join("rustc_redpen");
     config.link_deps(); // Populate config.target_rustcflags with dependencies on the path
 
     compiletest::run_tests(&config);

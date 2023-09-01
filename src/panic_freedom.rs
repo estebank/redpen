@@ -431,7 +431,7 @@ impl<'tcx> LateLintPass<'tcx> for DontPanic<'tcx> {
                         self.tcx.def_path_str(def_id).to_string(),
                     ),
                     |diag| {
-                        diag.span_label(attr_span, "the function can't panic due to this annotation");
+                        diag.span_label(attr_span, "the function is not allowed to panic due to this annotation");
                         diag.span_label(span, "this function can panic");
                         for span in calls.iter().map(|(_, &span)| span.source_callsite()).collect::<HashSet<Span>>() {
                             diag.span_label(span, "panic can occur here");
