@@ -24,8 +24,10 @@ fn main() {
     }) {
         io::stdout().write_all(&output.stdout).unwrap();
         io::stderr().write_all(&output.stderr).unwrap();
+    } else if !output.status.success() {
+        io::stdout().write_all(&output.stdout).unwrap();
+        io::stderr().write_all(&output.stderr).unwrap();
     }
-    assert!(output.status.success());
 
     let Some(crate_name) = crate_name else {
         return;
@@ -47,6 +49,8 @@ fn main() {
             }
             args.push(arg);
         }
+        args.push("--cfg".to_string());
+        args.push("redpen".to_string());
 
         let output = Command::new("rustc_redpen")
             .args(&args[..])

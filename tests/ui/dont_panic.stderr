@@ -1,8 +1,6 @@
 error: `impl_fn` can panic
   --> $DIR/dont_panic.rs:36:1
    |
-35 | #[redpen::dont_panic]
-   | --------------------- the function is not allowed to panic due to this annotation
 36 | fn impl_fn(x: impl A) {
    | ^^^^^^^^^^^^^^^^^^^^^ this function can panic
 37 |     x.from_trait();
@@ -10,25 +8,31 @@ error: `impl_fn` can panic
 38 |     x.from_a_impl();
    |       ----------- panic can occur here
    |
-   = note: `#[deny(redpen::dont_panic)]` on by default
+note: the lint level is defined here
+  --> $DIR/dont_panic.rs:35:8
+   |
+35 | #[deny(redpen::dont_panic)]
+   |        ^^^^^^^^^^^^^^^^^^
 
 error: `trait_object` can panic
   --> $DIR/dont_panic.rs:41:1
    |
-40 | #[redpen::dont_panic]
-   | --------------------- the function is not allowed to panic due to this annotation
 41 | fn trait_object(x: Box<dyn A>) {
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this function can panic
 42 |     x.from_trait();
    |       ---------- panic can occur here
 43 |     x.from_a_impl();
    |       ----------- panic can occur here
+   |
+note: the lint level is defined here
+  --> $DIR/dont_panic.rs:40:8
+   |
+40 | #[deny(redpen::dont_panic)]
+   |        ^^^^^^^^^^^^^^^^^^
 
 error: `foo` can panic
   --> $DIR/dont_panic.rs:47:1
    |
-46 |   #[redpen::dont_panic]
-   |   --------------------- the function is not allowed to panic due to this annotation
 47 |   fn foo() {
    |   ^^^^^^^^ this function can panic
 48 |       panic!("shouldn't happen!");
@@ -41,26 +45,37 @@ error: `foo` can panic
    |         ----------- panic can occur here
 52 |       S.from_impl();
    |         --------- panic can occur here
-53 | /     (|| {
-54 | |         panic!();
-55 | |     })();
+53 |       #[allow(redpen::dont_panic)]
+54 | /     (|| {
+55 | |         panic!();
+56 | |     })();
    | |______- panic can occur here
-56 |       let x =  || panic!();
-57 |       x();
+...
+59 |       x();
    |       - panic can occur here
 ...
-60 |       let _ = x[1];
+62 |       let _ = x[1];
    |               ---- panic can occur here
+   |
+note: the lint level is defined here
+  --> $DIR/dont_panic.rs:46:8
+   |
+46 | #[deny(redpen::dont_panic)]
+   |        ^^^^^^^^^^^^^^^^^^
 
 error: `bar` can panic
-  --> $DIR/dont_panic.rs:65:1
+  --> $DIR/dont_panic.rs:67:1
    |
-64 | #[redpen::dont_panic]
-   | --------------------- the function is not allowed to panic due to this annotation
-65 | fn bar() {
+67 | fn bar() {
    | ^^^^^^^^ this function can panic
-66 |     foo();
+68 |     foo();
    |     --- panic can occur here
+   |
+note: the lint level is defined here
+  --> $DIR/dont_panic.rs:66:8
+   |
+66 | #[deny(redpen::dont_panic)]
+   |        ^^^^^^^^^^^^^^^^^^
 
 error: aborting due to 4 previous errors
 

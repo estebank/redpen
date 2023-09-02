@@ -124,7 +124,6 @@ impl<'tcx> DontPanic<'tcx> {
         {
             return;
         }
-        // println!("visit {def_id:?} {:?} {:?}", self.tcx.def_kind(def_id), self.current_item);
         let prev = self.current_item.clone();
         self.current_item = Some(def_id);
         // MAYBE?
@@ -153,7 +152,7 @@ impl<'tcx> Drop for DontPanic<'tcx> {
 
 declare_tool_lint! {
     pub redpen::DONT_PANIC,
-    Deny,
+    Allow,
     "The marked function cannot transitively call `panic!()`"
 }
 
@@ -189,7 +188,6 @@ impl<'tcx> Visitor<'tcx> for DontPanic<'tcx> {
         let Some(local_def_id) = current_def_id.as_local() else {
             return;
         };
-        // println!("{:?}", expr.hir_id);
         match expr.kind {
             hir::ExprKind::Closure(closure) => {
                 self.visit(closure.def_id.to_def_id(), |this| {
@@ -396,7 +394,7 @@ impl<'tcx> Visitor<'tcx> for DontPanic<'tcx> {
 }
 
 impl<'tcx> LateLintPass<'tcx> for DontPanic<'tcx> {
-    fn check_crate(&mut self, cx: &LateContext<'tcx>) {
+    fn check_crate(&mut self, _cx: &LateContext<'tcx>) {
         self.tcx.hir().visit_all_item_likes_in_crate(self);
 
         let mut set = self
@@ -410,17 +408,6 @@ impl<'tcx> LateLintPass<'tcx> for DontPanic<'tcx> {
             if let Some(calls) = self.map.get(&def_id) && !calls.is_empty()
                 && let Some(did) = def_id.as_local()
             {
-                let hir_id = self.tcx.local_def_id_to_hir_id(did);
-                let Some((_, attr_span)) = self.tcx
-                    .hir()
-                    .attrs(hir_id)
-                    .iter()
-                    .filter_map(|attr| parse_attr(cx.tcx, hir_id, attr).map(|a| (a, attr.span)))
-                    .filter(|(attr, _)| matches!(attr, RedpenAttribute::DontPanic))
-                    .next()
-                else {
-                    continue;
-                };
                 let span = self.tcx.def_span(def_id);
                 self.tcx.struct_span_lint_hir(
                     DONT_PANIC,
@@ -431,7 +418,6 @@ impl<'tcx> LateLintPass<'tcx> for DontPanic<'tcx> {
                         self.tcx.def_path_str(def_id).to_string(),
                     ),
                     |diag| {
-                        diag.span_label(attr_span, "the function is not allowed to panic due to this annotation");
                         diag.span_label(span, "this function can panic");
                         for span in calls.iter().map(|(_, &span)| span.source_callsite()).collect::<HashSet<Span>>() {
                             diag.span_label(span, "panic can occur here");

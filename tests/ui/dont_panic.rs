@@ -32,27 +32,29 @@ fn might_panic() {
     panic!()
 }
 
-#[redpen::dont_panic]
+#[deny(redpen::dont_panic)]
 fn impl_fn(x: impl A) {
     x.from_trait();
     x.from_a_impl();
 }
-#[redpen::dont_panic]
+#[deny(redpen::dont_panic)]
 fn trait_object(x: Box<dyn A>) {
     x.from_trait();
     x.from_a_impl();
 }
 
-#[redpen::dont_panic]
+#[deny(redpen::dont_panic)]
 fn foo() {
     panic!("shouldn't happen!");
     S.foo();
     S.from_trait();
     S.from_a_impl();
     S.from_impl();
+    #[allow(redpen::dont_panic)]
     (|| {
         panic!();
     })();
+    #[allow(redpen::dont_panic)]
     let x =  || panic!();
     x();
     let mut x = vec![];
@@ -61,12 +63,12 @@ fn foo() {
     might_panic();
 }
 
-#[redpen::dont_panic]
+#[deny(redpen::dont_panic)]
 fn bar() {
     foo();
 }
 
-#[redpen::dont_panic]
+#[deny(redpen::dont_panic)]
 fn baz() {
 }
 
