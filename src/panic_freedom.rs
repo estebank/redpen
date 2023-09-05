@@ -1,68 +1,50 @@
-use std::collections::{HashMap, HashSet};
-use std::io::{Read, Write};
+use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 
 use hir::def_id::DefId;
+use rustc_errors::MultiSpan;
 use rustc_hir as hir;
-use rustc_hir::def::DefKind;
 use rustc_hir::intravisit::Visitor;
-use rustc_hir_typeck::{FnCtxt, Inherited};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, TyCtxt};
+use rustc_middle::mir::mono::MonoItem;
+use rustc_middle::ty::{self, Instance, TyCtxt};
 use rustc_session::{declare_tool_lint, impl_lint_pass};
-use rustc_span::{Span, DUMMY_SP};
+use rustc_span::source_map::Spanned;
+use rustc_span::Span;
 
 use crate::attribute::{parse_redpen_attribute as parse_attr, RedpenAttribute};
-
-const FILE_NAME: &'static str = "symbols";
+use crate::monomorphize_collector::MonoItemCollectionMode;
 
 pub struct DontPanic<'tcx> {
     tcx: TyCtxt<'tcx>,
-    current_item: Option<DefId>,
-    map: HashMap<DefId, HashMap<DefId, Span>>,
-    foreign: HashSet<String>,
+    affected: FxHashSet<DefId>,
+    skipped: FxHashSet<DefId>,
+    map: FxHashMap<Span, hir::HirId>,
+    in_wont_panic: bool,
 }
 
 impl<'tcx> DontPanic<'tcx> {
     pub fn new(tcx: TyCtxt<'tcx>) -> Self {
-        let mut map = HashMap::<DefId, HashMap<DefId, Span>>::default();
-        for (def_id, span) in [
-            tcx.lang_items().panic_fn(),
-            tcx.lang_items().panic_fmt(),
-            tcx.lang_items().panic_nounwind(),
-        ]
-        .into_iter()
-        .flatten()
-        .map(|id| (id, DUMMY_SP))
-        {
-            map.entry(def_id).or_default().insert(def_id, span);
-        }
-        let mut foreign = HashSet::<String>::default();
-        let mut s = String::new();
-        let mut x = tcx.output_filenames(()).out_directory.clone();
-        x.push(FILE_NAME);
-        if let Ok(mut file) = std::fs::OpenOptions::new().read(true).open(x)
-            && let Ok(_) = file.read_to_string(&mut s)
-        {
-            for line in s.lines() {
-                foreign.insert(line.to_string());
-            }
-        }
-
         Self {
             tcx,
-            map,
-            current_item: None,
-            foreign,
+            affected: FxHashSet::default(),
+            skipped: FxHashSet::default(),
+            map: FxHashMap::default(),
+            in_wont_panic: false,
         }
-    }
-
-    fn symbol(&self, def_id: DefId) -> String {
-        let args = ty::InternalSubsts::identity_for_item(self.tcx, def_id);
-        let instance = ty::Instance::new(def_id, args);
-        rustc_symbol_mangling::symbol_name_for_instance_in_crate(self.tcx, instance, def_id.krate)
     }
 
     fn visit(&mut self, def_id: DefId, callback: impl Fn(&mut Self)) {
+        let prev = self.in_wont_panic;
+        self.in_wont_panic = self.check_attrs(def_id);
+        if prev || self.in_wont_panic {
+            self.skipped.insert(def_id);
+        }
+        callback(self);
+        self.in_wont_panic = prev;
+        return;
+    }
+
+    pub fn check_attrs(&mut self, def_id: DefId) -> bool {
         if let Some(did) = def_id.as_local()
             && let hir_id = self.tcx.local_def_id_to_hir_id(did)
             && let Some(_) = self.tcx
@@ -74,78 +56,10 @@ impl<'tcx> DontPanic<'tcx> {
                 .next()
         {
             // The item is annotated as ensuring that it won't panic, despite what the call graph
-            // might imply, so we won't add this item to the graph to avoid pointing at calls to it
-            // anywhere else.
-            return;
-        }
-        match self.tcx.def_kind(def_id) {
-            DefKind::Const
-            | DefKind::TyParam
-            | DefKind::ConstParam
-            | DefKind::Static(_)
-            | DefKind::Ctor(..)
-            | DefKind::Macro(_)
-            | DefKind::AssocConst
-            | DefKind::Use
-            | DefKind::ForeignMod
-            | DefKind::ExternCrate
-            | DefKind::Field
-            | DefKind::OpaqueTy
-            | DefKind::AnonConst
-            | DefKind::InlineConst
-            | DefKind::LifetimeParam
-            | DefKind::GlobalAsm
-            | DefKind::Struct
-            | DefKind::Union
-            | DefKind::Enum
-            | DefKind::Variant
-            | DefKind::TyAlias
-            | DefKind::TraitAlias
-            | DefKind::AssocTy
-            | DefKind::ImplTraitPlaceholder
-            | DefKind::ForeignTy => {
-                return;
-            }
-            DefKind::Mod | DefKind::Trait | DefKind::Impl { .. } => {
-                let prev = self.current_item.clone();
-                self.current_item = None;
-                callback(self);
-                self.current_item = prev;
-                return;
-            }
-            DefKind::Fn | DefKind::Closure | DefKind::AssocFn | DefKind::Generator => {
-                // ok
-            }
-        }
-
-        if self.map.get(&def_id).is_some()
-            // Avoid infinite recursion in `core`
-            || Some(def_id) == self.tcx.lang_items().drop_in_place_fn()
-        {
-            return;
-        }
-        let prev = self.current_item.clone();
-        self.current_item = Some(def_id);
-        // MAYBE?
-        self.map.entry(def_id).or_default();
-        callback(self);
-        self.current_item = prev;
-    }
-}
-
-impl<'tcx> Drop for DontPanic<'tcx> {
-    fn drop(&mut self) {
-        let mut x = self.tcx.output_filenames(()).out_directory.clone();
-        x.push(FILE_NAME);
-        if let Ok(mut file) = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(x)
-        {
-            for (&def_id, _) in self.map.iter().filter(|(_, values)| !values.is_empty()) {
-                let _ = file.write(self.symbol(def_id).as_bytes());
-                let _ = file.write(b"\n");
-            }
+            // might imply, so we won't complain about it.
+            true
+        } else {
+            false
         }
     }
 }
@@ -182,196 +96,9 @@ impl<'tcx> Visitor<'tcx> for DontPanic<'tcx> {
     }
 
     fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
-        let Some(current_def_id) = self.current_item else {
-            return;
-        };
-        let Some(local_def_id) = current_def_id.as_local() else {
-            return;
-        };
+        self.map.insert(expr.span, expr.hir_id);
         match expr.kind {
-            hir::ExprKind::Closure(closure) => {
-                self.visit(closure.def_id.to_def_id(), |this| {
-                    hir::intravisit::walk_expr(this, expr)
-                });
-                return;
-            }
-            hir::ExprKind::MethodCall(segment, rcvr, _args, span) => {
-                let inh = Inherited::new(self.tcx, local_def_id);
-                let fcx = FnCtxt::new(&inh, self.tcx.param_env(local_def_id), local_def_id);
-                let rcvr_ty = if let Some(rcvr_ty) = fcx.node_ty_opt(rcvr.hir_id) {
-                    rcvr_ty
-                } else if let Some(rcvr_ty) = self
-                    .tcx
-                    .has_typeck_results(current_def_id)
-                    .then(|| self.tcx.typeck(local_def_id))
-                    .and_then(|typeck| typeck.node_type_opt(rcvr.hir_id))
-                {
-                    rcvr_ty
-                } else {
-                    hir::intravisit::walk_expr(self, expr);
-                    return;
-                };
-                let Ok(method) =
-                    fcx.lookup_method_for_diagnostic(rcvr_ty, segment, span, expr, rcvr)
-                else {
-                    // TODO: What should we do if we don't find the method?
-                    hir::intravisit::walk_expr(self, expr);
-                    return;
-                };
-
-                // For `impl Trait` and `Box<dyn Trait>` we instead look at *every* impl and
-                // tell the user that the call might panic if *any `impl`* of `Trait` might panic,
-                // because we don't know at compile time which of those is actually being called.
-                let trait_object_or_impl_trait = match rcvr_ty.kind() {
-                    ty::Adt(def, args) if def.is_box() => {
-                        match args.get(0).and_then(|ty| ty.as_type()).map(|ty| ty.kind()) {
-                            Some(ty::Dynamic(..)) => true,
-                            _ => false,
-                        }
-                    }
-                    ty::Alias(ty::Opaque, _) => true,
-                    _ if rcvr_ty.to_string().starts_with("impl ") => true,
-                    _ => false,
-                };
-                if trait_object_or_impl_trait {
-                    let mut relevant_impls = vec![];
-                    if let Some(impl_item) = self.tcx.opt_associated_item(method.def_id) {
-                        self.tcx
-                            .for_each_impl(impl_item.container_id(self.tcx), |def_id| {
-                                relevant_impls.push(def_id);
-                            });
-                    }
-                    let mut impl_methods = vec![];
-                    for relevant in relevant_impls {
-                        if let Some(assoc) =
-                            self.tcx.associated_items(relevant).find_by_name_and_kind(
-                                self.tcx,
-                                segment.ident,
-                                ty::AssocKind::Fn,
-                                relevant,
-                            )
-                        {
-                            impl_methods.push(assoc.def_id);
-                        }
-                    }
-                    if impl_methods.iter().any(|&method_def_id| {
-                        if let Some(local_def_id) = method_def_id.as_local()
-                            && let Some(hir_id) = self.tcx.opt_local_def_id_to_hir_id(local_def_id)
-                            && let Some(hir::Node::Item(item)) = self.tcx.hir().find(hir_id)
-                        {
-                            self.visit_item(item);
-                        }
-                        match self.map.get(&method_def_id) {
-                            Some(ids) if !ids.is_empty() => true,
-                            _ => self.foreign.contains(&self.symbol(method_def_id)),
-                        }
-                    }) {
-                        self.map
-                            .entry(current_def_id)
-                            .or_default()
-                            .insert(method.def_id, segment.ident.span);
-                        hir::intravisit::walk_expr(self, expr);
-                        return;
-                    }
-                }
-
-                // `method.def_id` corresponds to the method's associated item, but we wan't the
-                // trait's, so we look for relevant implementations and if we find one, we use its
-                // `DefId` instead.
-                let mut method_def_id = method.def_id;
-                let mut relevant_impls = vec![];
-                if let Some(impl_item) = self.tcx.opt_associated_item(method.def_id) {
-                    self.tcx.for_each_relevant_impl(
-                        impl_item.container_id(self.tcx),
-                        rcvr_ty,
-                        |def_id| {
-                            relevant_impls.push(def_id);
-                        },
-                    );
-                }
-                if let [relevant] = &relevant_impls[..] {
-                    if let Some(assoc) = self.tcx.associated_items(*relevant).find_by_name_and_kind(
-                        self.tcx,
-                        segment.ident,
-                        ty::AssocKind::Fn,
-                        *relevant,
-                    ) {
-                        method_def_id = assoc.def_id;
-                    }
-                }
-
-                match self.map.get(&method_def_id) {
-                    None => {
-                        if let Some(local_def_id) = method_def_id.as_local()
-                            && let Some(hir_id) = self.tcx.opt_local_def_id_to_hir_id(local_def_id)
-                            && let Some(hir::Node::Item(item)) = self.tcx.hir().find(hir_id)
-                        {
-                            self.visit_item(item);
-                        } else if self.foreign.contains(&self.symbol(method_def_id)) {
-                            self.map
-                                .entry(current_def_id)
-                                .or_default()
-                                .insert(method_def_id, segment.ident.span);
-                        }
-                    }
-                    Some(ids) => {
-                        if !ids.is_empty() {
-                            // This method transitively calls panic.
-                            self.map
-                                .entry(current_def_id)
-                                .or_default()
-                                .insert(method_def_id, segment.ident.span);
-                        }
-                    }
-                }
-            }
-            hir::ExprKind::Call(rcvr, _args) => {
-                let Some(ty) = self.tcx.typeck(local_def_id).expr_ty_adjusted_opt(rcvr) else {
-                    hir::intravisit::walk_expr(self, expr);
-                    return;
-                };
-                let def_id = match ty.peel_refs().kind() {
-                    ty::FnDef(def_id, _) => def_id,
-                    ty::Closure(def_id, _) => {
-                        self.visit(*def_id, |this| hir::intravisit::walk_expr(this, rcvr));
-                        def_id
-                    }
-                    _ => {
-                        hir::intravisit::walk_expr(self, expr);
-                        return;
-                    }
-                };
-                match self.map.get(def_id) {
-                    None => {
-                        if let Some(local_def_id) = def_id.as_local()
-                            && let Some(hir_id) = self.tcx.opt_local_def_id_to_hir_id(local_def_id)
-                            && let Some(hir::Node::Item(item)) = self.tcx.hir().find(hir_id)
-                        {
-                            self.visit_item(item);
-                        } else if let Some(local_def_id) = def_id.as_local()
-                            && let Some(hir_id) = self.tcx.opt_local_def_id_to_hir_id(local_def_id)
-                            && let Some(hir::Node::Expr(expr)) = self.tcx.hir().find(hir_id)
-                        {
-                            self.visit_expr(expr);
-                        } else if self.foreign.contains(&self.symbol(*def_id)) {
-                            self.map.entry(current_def_id).or_default().insert(*def_id, rcvr.span);
-                        }
-                    }
-                    Some(ids) => {
-                        if !ids.is_empty() {
-                            // This function calls panic
-                            self.map
-                                .entry(current_def_id)
-                                .or_default()
-                                .insert(*def_id, rcvr.span);
-                        }
-                    }
-                }
-            }
             hir::ExprKind::Index(_rcvr, _idx) => {
-                let Some(tr) = self.tcx.lang_items().index_trait() else {
-                    return;
-                };
                 // FIXME: we really want to do the following in order to explicitly check if the
                 // impl could panic.
                 // let method = fcx.try_overloaded_place_op(
@@ -382,10 +109,18 @@ impl<'tcx> Visitor<'tcx> for DontPanic<'tcx> {
                 // );
                 // In the meantime, until we can make try_overloaded_place_op public, we always
                 // complain about index access :-/
-                self.map
-                    .entry(current_def_id)
-                    .or_default()
-                    .insert(tr, expr.span);
+                // let Some(tr) = self.tcx.lang_items().index_trait() else {
+                //     return;
+                // };
+                // FIXME: follow `wont_panic` directive. Should `wont_panic` also mean
+                // `allow(redpen::dont_panic)`? I don't think so.
+                self.tcx.struct_span_lint_hir(
+                    &DONT_PANIC,
+                    expr.hir_id,
+                    expr.span,
+                    "indexing operations can panic if the indexed value isn't present",
+                    |diag| diag,
+                );
             }
             _ => {}
         }
@@ -395,36 +130,270 @@ impl<'tcx> Visitor<'tcx> for DontPanic<'tcx> {
 
 impl<'tcx> LateLintPass<'tcx> for DontPanic<'tcx> {
     fn check_crate(&mut self, _cx: &LateContext<'tcx>) {
+        // Collect all mono items to be codegened with this crate. Discard the inline map, it does
+        // not contain enough information for us; we will collect them ourselves later.
+        //
+        // Use eager mode here so dead code is also linted on.
+        let (_, access_map, trait_objects) =
+            super::monomorphize_collector::collect_crate_mono_items(
+                self.tcx,
+                MonoItemCollectionMode::Eager,
+            );
+
+        // Build a forward and backward dependency graph with span information.
+        let mut forward = FxHashMap::default();
+        let mut backward = FxHashMap::<_, Vec<_>>::default();
+
+        access_map.for_each_item_and_its_used_items(|accessor, accessees| {
+            let accessor = match accessor {
+                MonoItem::Static(s) => Instance::mono(self.tcx, s),
+                MonoItem::Fn(v) => v,
+                _ => return,
+            };
+
+            let fwd_list = forward
+                .entry(accessor)
+                .or_insert_with(|| Vec::with_capacity(accessees.len()));
+            let mut def_span = None;
+
+            for accessee in accessees {
+                let accessee_node = match accessee.node {
+                    MonoItem::Static(s) => Instance::mono(self.tcx, s),
+                    MonoItem::Fn(v) => v,
+                    _ => return,
+                };
+
+                // For const-evaluated items, they're collected from miri, which does not have span
+                // information. Synthesize one with the accessor.
+                let span = if accessee.span.is_dummy() {
+                    *def_span.get_or_insert_with(|| self.tcx.def_span(accessor.def_id()))
+                } else {
+                    accessee.span
+                };
+
+                fwd_list.push(Spanned {
+                    node: accessee_node,
+                    span,
+                });
+                backward.entry(accessee_node).or_default().push(Spanned {
+                    node: accessor,
+                    span,
+                });
+            }
+        });
+
+        // Find all relevant functions
+        let mut visited = FxHashSet::default();
+        let mut affected = FxHashSet::default();
+        let mut root = FxHashSet::default();
+        for (accessee, accessed) in &backward {
+            let name = self.tcx.def_path_str(accessee.def_id());
+            match name.as_str() {
+                "core::panicking::panic_fmt" | "core::panicking::panic" | "std::rt::panic_fmt" => {
+                    visited.insert(*accessee);
+                    affected.insert(*accessee);
+                    root.insert(*accessee);
+                    for accessed in accessed {
+                        affected.insert(accessed.node);
+                    }
+                }
+                _ => (),
+            }
+        }
+
+        let mut work_queue = Vec::new();
+        for (accessee, _accessed) in &backward {
+            work_queue.push(*accessee);
+        }
+
+        // Propagate infallible property.
+        while let Some(work_item) = work_queue.pop() {
+            if visited.contains(&work_item) {
+                continue;
+            }
+            visited.insert(work_item);
+
+            for accessor in backward.get(&work_item).unwrap_or(&Vec::new()) {
+                if affected.contains(&work_item) {
+                    affected.insert(accessor.node);
+                }
+                work_queue.push(accessor.node);
+            }
+        }
+
+        self.affected = affected.iter().map(|x| x.def_id()).collect();
+
         self.tcx.hir().visit_all_item_likes_in_crate(self);
 
-        let mut set = self
-            .map
-            .iter()
-            .filter(|(_, values)| !values.is_empty())
-            .map(|(&def_id, _)| def_id)
-            .collect::<Vec<_>>();
-        set.sort();
-        for def_id in set {
-            if let Some(calls) = self.map.get(&def_id) && !calls.is_empty()
-                && let Some(did) = def_id.as_local()
-            {
-                let span = self.tcx.def_span(def_id);
-                self.tcx.struct_span_lint_hir(
-                    DONT_PANIC,
-                    self.tcx.local_def_id_to_hir_id(did),
-                    span,
-                    format!(
-                        "`{}` can panic",
-                        self.tcx.def_path_str(def_id).to_string(),
-                    ),
-                    |diag| {
-                        diag.span_label(span, "this function can panic");
-                        for span in calls.iter().map(|(_, &span)| span.source_callsite()).collect::<HashSet<Span>>() {
-                            diag.span_label(span, "panic can occur here");
-                        }
-                        diag
+        for (accessor, accessees) in forward.iter() {
+            if !accessor.def_id().is_local() {
+                continue;
+            }
+            for item in accessees {
+                let accessee = item.node;
+                if affected.contains(&accessee) {
+                    if self.skipped.contains(&accessee.def_id()) {
+                        continue;
                     }
-                );
+                    let Some(&hir_id) = self.map.get(&item.span) else {
+                        continue;
+                    };
+                    let is_generic = accessor.substs.non_erasable_generics().next().is_some();
+                    let generic_note = if is_generic {
+                        format!(
+                            " when the caller is monomorphized as `{}`",
+                            self.tcx
+                                .def_path_str_with_substs(accessor.def_id(), accessor.substs)
+                        )
+                    } else {
+                        String::new()
+                    };
+
+                    let accessee_path = self
+                        .tcx
+                        .def_path_str_with_substs(accessee.def_id(), accessee.substs);
+
+                    self.tcx.struct_span_lint_hir(
+                        &DONT_PANIC,
+                        hir_id,
+                        item.span,
+                        format!("calling `{}` can panic{}", accessee_path, generic_note),
+                        |diag| {
+                            diag.span_label(item.span, "this call can panic");
+                            let mut called = accessee;
+                            let mut caller = accessee;
+                            let mut visited = FxHashSet::default();
+                            visited.insert(*accessor);
+                            visited.insert(accessee);
+                            loop {
+                                if !caller.def_id().is_local() {
+                                    break;
+                                }
+                                let all_called = forward
+                                    .get(&called)
+                                    .map(|x| &**x)
+                                    .unwrap_or(&[])
+                                    .iter()
+                                    .filter(|x| {
+                                        affected.contains(&x.node)
+                                            && !self.skipped.contains(&x.node.def_id())
+                                    })
+                                    .collect::<Vec<_>>();
+                                if all_called.len() > 1 {
+                                    // point at all the callers, but don't dig into the chain
+                                    let mut span: MultiSpan = all_called
+                                        .iter()
+                                        .map(|x| x.span.source_callsite())
+                                        .collect::<Vec<_>>()
+                                        .into();
+                                    span.push_span_label(self.tcx.def_span(caller.def_id()), "");
+                                    diag.span_note(
+                                        span,
+                                        format!(
+                                            "`{}` can panic here",
+                                            self.tcx.def_path_str_with_substs(
+                                                caller.def_id(),
+                                                caller.substs
+                                            )
+                                        ),
+                                    );
+                                    break;
+                                } else if all_called.len() == 1 {
+                                    // chain
+                                } else {
+                                    // nothing to point at
+                                    break;
+                                }
+
+                                called = all_called[0].node;
+                                visited.insert(called);
+
+                                let mut span: MultiSpan =
+                                    all_called[0].span.source_callsite().into();
+                                span.push_span_label(self.tcx.def_span(caller.def_id()), "");
+
+                                diag.span_note(
+                                    span,
+                                    format!(
+                                        "`{}` can panic here",
+                                        self.tcx.def_path_str_with_substs(
+                                            caller.def_id(),
+                                            caller.substs
+                                        )
+                                    ),
+                                );
+                                caller = called;
+                            }
+                            diag
+                        },
+                    );
+                }
+            }
+        }
+
+        for (span, to_def_id, substs) in trait_objects {
+            if let Some(impl_item) = self.tcx.opt_associated_item(to_def_id) {
+                let def_id = impl_item.container_id(self.tcx);
+                let mut relevant_impls = vec![];
+                self.tcx.for_each_impl(def_id, |x| {
+                    relevant_impls.push(x);
+                });
+                let mut impl_methods = vec![];
+                for relevant in relevant_impls {
+                    if let Some(assoc) = self.tcx.associated_items(relevant).find_by_name_and_kind(
+                        self.tcx,
+                        impl_item.ident(self.tcx),
+                        ty::AssocKind::Fn,
+                        relevant,
+                    ) {
+                        impl_methods.push(assoc.def_id);
+                    }
+                }
+                impl_methods.push(to_def_id); // account for fn in trait with body
+                if impl_methods
+                    .iter()
+                    .any(|&method_def_id| self.affected.contains(&method_def_id))
+                {
+                    let accessee_path = self.tcx.def_path_str_with_substs(def_id, substs);
+                    let Some(&hir_id) = self.map.get(&span) else {
+                        continue;
+                    };
+                    self.tcx.struct_span_lint_hir(
+                        &DONT_PANIC,
+                        hir_id,
+                        span,
+                        format!("calling `{}` can panic in a trait object", accessee_path),
+                        |diag| {
+                            let mut spans = vec![];
+                            let mut sec_spans = vec![];
+                            for def_id in impl_methods.iter().filter(|&def_id| {
+                                self.affected.contains(&def_id) && !self.skipped.contains(&def_id)
+                            }) {
+                                for instance in forward.keys() {
+                                    if instance.def_id() == *def_id
+                                        && let Some(instances) = forward.get(instance)
+                                    {
+                                        for accessed in instances {
+                                            spans.push(accessed.span.source_callsite());
+                                        }
+                                        sec_spans.push(self.tcx.def_span(instance.def_id()));
+                                    }
+                                }
+                            }
+                            let s = if spans.len() > 1 { "s" } else { "" };
+
+                            let mut span: MultiSpan = spans.into();
+                            for sp in sec_spans {
+                                span.push_span_label(sp, "");
+                            }
+                            diag.span_note(
+                                span,
+                                format!("the following `fn` definition{s} can panic"),
+                            );
+                            diag
+                        },
+                    );
+                }
             }
         }
     }

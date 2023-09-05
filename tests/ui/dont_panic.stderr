@@ -1,81 +1,296 @@
-error: `impl_fn` can panic
-  --> $DIR/dont_panic.rs:36:1
+error: indexing operations can panic if the indexed value isn't present
+  --> $DIR/dont_panic.rs:69:13
    |
-36 | fn impl_fn(x: impl A) {
-   | ^^^^^^^^^^^^^^^^^^^^^ this function can panic
-37 |     x.from_trait();
-   |       ---------- panic can occur here
-38 |     x.from_a_impl();
-   |       ----------- panic can occur here
+69 |     let _ = x[1];
+   |             ^^^^
    |
 note: the lint level is defined here
-  --> $DIR/dont_panic.rs:35:8
+  --> $DIR/dont_panic.rs:2:9
    |
-35 | #[deny(redpen::dont_panic)]
-   |        ^^^^^^^^^^^^^^^^^^
+2  | #![deny(redpen::dont_panic)]
+   |         ^^^^^^^^^^^^^^^^^^
 
-error: `trait_object` can panic
-  --> $DIR/dont_panic.rs:41:1
+error: calling `S::foo` can panic
+  --> $DIR/dont_panic.rs:54:5
    |
-41 | fn trait_object(x: Box<dyn A>) {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this function can panic
-42 |     x.from_trait();
-   |       ---------- panic can occur here
-43 |     x.from_a_impl();
-   |       ----------- panic can occur here
+54 |     S.foo();
+   |     ^^^^^^^ this call can panic
    |
-note: the lint level is defined here
-  --> $DIR/dont_panic.rs:40:8
+note: `S::foo` can panic here
+  --> $DIR/dont_panic.rs:7:9
    |
-40 | #[deny(redpen::dont_panic)]
-   |        ^^^^^^^^^^^^^^^^^^
+6  |     fn foo(&self) {
+   |     -------------
+7  |         panic!("");
+   |         ^^^^^^^^^^
 
-error: `foo` can panic
-  --> $DIR/dont_panic.rs:47:1
+error: calling `<S as A>::from_trait` can panic
+  --> $DIR/dont_panic.rs:55:5
    |
-47 |   fn foo() {
-   |   ^^^^^^^^ this function can panic
-48 |       panic!("shouldn't happen!");
-   |       --------------------------- panic can occur here
-49 |       S.foo();
-   |         --- panic can occur here
-50 |       S.from_trait();
-   |         ---------- panic can occur here
-51 |       S.from_a_impl();
-   |         ----------- panic can occur here
-52 |       S.from_impl();
-   |         --------- panic can occur here
-53 |       #[allow(redpen::dont_panic)]
-54 | /     (|| {
-55 | |         panic!();
-56 | |     })();
-   | |______- panic can occur here
+55 |     S.from_trait();
+   |     ^^^^^^^^^^^^^^ this call can panic
+   |
+note: `<S as A>::from_trait` can panic here
+  --> $DIR/dont_panic.rs:13:9
+   |
+12 |     fn from_trait(&self) {
+   |     --------------------
+13 |         panic!();
+   |         ^^^^^^^^
+
+error: calling `<S as A>::from_a_impl` can panic
+  --> $DIR/dont_panic.rs:56:5
+   |
+56 |     S.from_a_impl();
+   |     ^^^^^^^^^^^^^^^ this call can panic
+   |
+note: `<S as A>::from_a_impl` can panic here
+  --> $DIR/dont_panic.rs:23:9
+   |
+22 |     fn from_a_impl(&self) {
+   |     ---------------------
+23 |         panic!();
+   |         ^^^^^^^^
+
+error: calling `<S as B>::from_impl` can panic
+  --> $DIR/dont_panic.rs:57:5
+   |
+57 |     S.from_impl();
+   |     ^^^^^^^^^^^^^ this call can panic
+   |
+note: `<S as B>::from_impl` can panic here
+  --> $DIR/dont_panic.rs:29:9
+   |
+28 |     fn from_impl(&self) {
+   |     -------------------
+29 |         panic!();
+   |         ^^^^^^^^
+
+error: calling `foo::{closure#1}` can panic
+  --> $DIR/dont_panic.rs:66:5
+   |
+66 |     x();
+   |     ^^^ this call can panic
+   |
+note: `foo::{closure#1}` can panic here
+  --> $DIR/dont_panic.rs:65:17
+   |
+65 |     let x =  || panic!();
+   |              -- ^^^^^^^^
+
+error: calling `foo` can panic
+  --> $DIR/dont_panic.rs:85:5
+   |
+85 |     foo();
+   |     ^^^^^ this call can panic
+   |
+note: `foo` can panic here
+  --> $DIR/dont_panic.rs:54:5
+   |
+53 |   fn foo() {
+   |   --------
+54 |       S.foo();
+   |       ^^^^^^^
+55 |       S.from_trait();
+   |       ^^^^^^^^^^^^^^
+56 |       S.from_a_impl();
+   |       ^^^^^^^^^^^^^^^
+57 |       S.from_impl();
+   |       ^^^^^^^^^^^^^
 ...
-59 |       x();
-   |       - panic can occur here
+61 | /     (|| {
+62 | |         panic!();
+63 | |     })();
+   | |________^
 ...
-62 |       let _ = x[1];
-   |               ---- panic can occur here
-   |
-note: the lint level is defined here
-  --> $DIR/dont_panic.rs:46:8
-   |
-46 | #[deny(redpen::dont_panic)]
-   |        ^^^^^^^^^^^^^^^^^^
+66 |       x();
+   |       ^^^
+...
+71 |       panic!("shouldn't happen!");
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: `bar` can panic
-  --> $DIR/dont_panic.rs:67:1
+error: calling `bar` can panic
+  --> $DIR/dont_panic.rs:86:5
    |
-67 | fn bar() {
-   | ^^^^^^^^ this function can panic
-68 |     foo();
-   |     --- panic can occur here
+86 |     bar();
+   |     ^^^^^ this call can panic
    |
-note: the lint level is defined here
-  --> $DIR/dont_panic.rs:66:8
+note: `bar` can panic here
+  --> $DIR/dont_panic.rs:75:5
    |
-66 | #[deny(redpen::dont_panic)]
-   |        ^^^^^^^^^^^^^^^^^^
+74 | fn bar() {
+   | --------
+75 |     foo();
+   |     ^^^^^
+note: `foo` can panic here
+  --> $DIR/dont_panic.rs:54:5
+   |
+53 |   fn foo() {
+   |   --------
+54 |       S.foo();
+   |       ^^^^^^^
+55 |       S.from_trait();
+   |       ^^^^^^^^^^^^^^
+56 |       S.from_a_impl();
+   |       ^^^^^^^^^^^^^^^
+57 |       S.from_impl();
+   |       ^^^^^^^^^^^^^
+...
+61 | /     (|| {
+62 | |         panic!();
+63 | |     })();
+   | |________^
+...
+66 |       x();
+   |       ^^^
+...
+71 |       panic!("shouldn't happen!");
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: aborting due to 4 previous errors
+error: calling `<S as A>::from_trait` can panic
+  --> $DIR/dont_panic.rs:88:18
+   |
+88 |     trait_object(Box::new(S));
+   |                  ^^^^^^^^^^^ this call can panic
+   |
+note: `<S as A>::from_trait` can panic here
+  --> $DIR/dont_panic.rs:13:9
+   |
+12 |     fn from_trait(&self) {
+   |     --------------------
+13 |         panic!();
+   |         ^^^^^^^^
+
+error: calling `<S as A>::from_a_impl` can panic
+  --> $DIR/dont_panic.rs:88:18
+   |
+88 |     trait_object(Box::new(S));
+   |                  ^^^^^^^^^^^ this call can panic
+   |
+note: `<S as A>::from_a_impl` can panic here
+  --> $DIR/dont_panic.rs:23:9
+   |
+22 |     fn from_a_impl(&self) {
+   |     ---------------------
+23 |         panic!();
+   |         ^^^^^^^^
+
+error: calling `boxed` can panic
+  --> $DIR/dont_panic.rs:90:18
+   |
+90 |     trait_object(boxed());
+   |                  ^^^^^^^ this call can panic
+   |
+note: `boxed` can panic here
+  --> $DIR/dont_panic.rs:82:5
+   |
+81 | fn boxed() -> Box<dyn A> {
+   | ------------------------
+82 |     unimplemented!();
+   |     ^^^^^^^^^^^^^^^^
+
+error: calling `impl_fn::<S>` can panic
+  --> $DIR/dont_panic.rs:91:5
+   |
+91 |     impl_fn(S);
+   |     ^^^^^^^^^^ this call can panic
+   |
+note: `impl_fn::<S>` can panic here
+  --> $DIR/dont_panic.rs:45:5
+   |
+44 | fn impl_fn(x: impl A) {
+   | ---------------------
+45 |     x.from_trait();
+   |     ^^^^^^^^^^^^^^
+46 |     x.from_a_impl();
+   |     ^^^^^^^^^^^^^^^
+
+error: calling `<S as A>::from_trait` can panic when the caller is monomorphized as `impl_fn::<S>`
+  --> $DIR/dont_panic.rs:45:5
+   |
+45 |     x.from_trait();
+   |     ^^^^^^^^^^^^^^ this call can panic
+   |
+note: `<S as A>::from_trait` can panic here
+  --> $DIR/dont_panic.rs:13:9
+   |
+12 |     fn from_trait(&self) {
+   |     --------------------
+13 |         panic!();
+   |         ^^^^^^^^
+
+error: calling `<S as A>::from_a_impl` can panic when the caller is monomorphized as `impl_fn::<S>`
+  --> $DIR/dont_panic.rs:46:5
+   |
+46 |     x.from_a_impl();
+   |     ^^^^^^^^^^^^^^^ this call can panic
+   |
+note: `<S as A>::from_a_impl` can panic here
+  --> $DIR/dont_panic.rs:23:9
+   |
+22 |     fn from_a_impl(&self) {
+   |     ---------------------
+23 |         panic!();
+   |         ^^^^^^^^
+
+error: calling `foo` can panic
+  --> $DIR/dont_panic.rs:75:5
+   |
+75 |     foo();
+   |     ^^^^^ this call can panic
+   |
+note: `foo` can panic here
+  --> $DIR/dont_panic.rs:54:5
+   |
+53 |   fn foo() {
+   |   --------
+54 |       S.foo();
+   |       ^^^^^^^
+55 |       S.from_trait();
+   |       ^^^^^^^^^^^^^^
+56 |       S.from_a_impl();
+   |       ^^^^^^^^^^^^^^^
+57 |       S.from_impl();
+   |       ^^^^^^^^^^^^^
+...
+61 | /     (|| {
+62 | |         panic!();
+63 | |     })();
+   | |________^
+...
+66 |       x();
+   |       ^^^
+...
+71 |       panic!("shouldn't happen!");
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: calling `A` can panic in a trait object
+  --> $DIR/dont_panic.rs:49:5
+   |
+49 |     x.from_trait();
+   |     ^^^^^^^^^^^^^^
+   |
+note: the following `fn` definition can panic
+  --> $DIR/dont_panic.rs:13:9
+   |
+12 |     fn from_trait(&self) {
+   |     --------------------
+13 |         panic!();
+   |         ^^^^^^^^
+
+error: calling `A` can panic in a trait object
+  --> $DIR/dont_panic.rs:50:5
+   |
+50 |     x.from_a_impl();
+   |     ^^^^^^^^^^^^^^^
+   |
+note: the following `fn` definition can panic
+  --> $DIR/dont_panic.rs:23:9
+   |
+22 |     fn from_a_impl(&self) {
+   |     ---------------------
+23 |         panic!();
+   |         ^^^^^^^^
+
+error: aborting due to 17 previous errors
 

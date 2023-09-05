@@ -40,14 +40,6 @@ For now, indexing operations are always treated as potentially panicking,
 *even if the invoked `impl` will never panic*. This is because the
 necessary `rustc` API is currently private. This will change in the future.
 
-The following is not currently appropriately handled:
-
-```rust
-fn foo<T: Trait>(x: T) {
-   x.panicky();
-}
-```
-
 Allocation failure doesn't rely on calls to `panic!()`, so those aren't
 picked up by this lint.
 

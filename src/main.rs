@@ -43,6 +43,8 @@ use std::sync::atomic::Ordering;
 
 mod attribute;
 mod disallow;
+mod infallible_allocation;
+mod monomorphize_collector;
 mod panic_freedom;
 mod symbol;
 
@@ -90,9 +92,12 @@ impl Callbacks for MyCallbacks {
                 &INCORRECT_ATTRIBUTE,
                 &disallow::DISALLOW,
                 &panic_freedom::DONT_PANIC,
+                &infallible_allocation::INFALLIBLE_ALLOCATION,
             ]);
             lint_store.register_late_pass(|tcx| Box::new(disallow::Disallow::new(tcx)));
             lint_store.register_late_pass(|tcx| Box::new(panic_freedom::DontPanic::new(tcx)));
+            lint_store
+                .register_late_pass(|_| Box::new(infallible_allocation::InfallibleAllocation));
         }));
     }
 }
