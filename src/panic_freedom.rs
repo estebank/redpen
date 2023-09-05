@@ -98,7 +98,7 @@ impl<'tcx> Visitor<'tcx> for DontPanic<'tcx> {
     fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
         self.map.insert(expr.span, expr.hir_id);
         match expr.kind {
-            hir::ExprKind::Index(_rcvr, _idx) => {
+            hir::ExprKind::Index(_rcvr, _idx, _span) => {
                 // FIXME: we really want to do the following in order to explicitly check if the
                 // impl could panic.
                 // let method = fcx.try_overloaded_place_op(
@@ -238,12 +238,12 @@ impl<'tcx> LateLintPass<'tcx> for DontPanic<'tcx> {
                     let Some(&hir_id) = self.map.get(&item.span) else {
                         continue;
                     };
-                    let is_generic = accessor.substs.non_erasable_generics().next().is_some();
+                    let is_generic = accessor.args.non_erasable_generics().next().is_some();
                     let generic_note = if is_generic {
                         format!(
                             " when the caller is monomorphized as `{}`",
                             self.tcx
-                                .def_path_str_with_substs(accessor.def_id(), accessor.substs)
+                                .def_path_str_with_args(accessor.def_id(), accessor.args)
                         )
                     } else {
                         String::new()
@@ -251,7 +251,7 @@ impl<'tcx> LateLintPass<'tcx> for DontPanic<'tcx> {
 
                     let accessee_path = self
                         .tcx
-                        .def_path_str_with_substs(accessee.def_id(), accessee.substs);
+                        .def_path_str_with_args(accessee.def_id(), accessee.args);
 
                     self.tcx.struct_span_lint_hir(
                         &DONT_PANIC,
@@ -291,9 +291,9 @@ impl<'tcx> LateLintPass<'tcx> for DontPanic<'tcx> {
                                         span,
                                         format!(
                                             "`{}` can panic here",
-                                            self.tcx.def_path_str_with_substs(
+                                            self.tcx.def_path_str_with_args(
                                                 caller.def_id(),
-                                                caller.substs
+                                                caller.args,
                                             )
                                         ),
                                     );
@@ -316,10 +316,8 @@ impl<'tcx> LateLintPass<'tcx> for DontPanic<'tcx> {
                                     span,
                                     format!(
                                         "`{}` can panic here",
-                                        self.tcx.def_path_str_with_substs(
-                                            caller.def_id(),
-                                            caller.substs
-                                        )
+                                        self.tcx
+                                            .def_path_str_with_args(caller.def_id(), caller.args)
                                     ),
                                 );
                                 caller = called;
@@ -331,7 +329,7 @@ impl<'tcx> LateLintPass<'tcx> for DontPanic<'tcx> {
             }
         }
 
-        for (span, to_def_id, substs) in trait_objects {
+        for (span, to_def_id, args) in trait_objects {
             if let Some(impl_item) = self.tcx.opt_associated_item(to_def_id) {
                 let def_id = impl_item.container_id(self.tcx);
                 let mut relevant_impls = vec![];
@@ -354,7 +352,7 @@ impl<'tcx> LateLintPass<'tcx> for DontPanic<'tcx> {
                     .iter()
                     .any(|&method_def_id| self.affected.contains(&method_def_id))
                 {
-                    let accessee_path = self.tcx.def_path_str_with_substs(def_id, substs);
+                    let accessee_path = self.tcx.def_path_str_with_args(def_id, args);
                     let Some(&hir_id) = self.map.get(&span) else {
                         continue;
                     };

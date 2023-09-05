@@ -24,6 +24,132 @@ note: `foo1` can panic here
 50 |     panic!("shouldn't happen!");
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+error: calling `foo2` can panic
+  --> $DIR/dont_panic_2.rs:90:5
+   |
+90 |     foo2();
+   |     ^^^^^^ this call can panic
+   |
+note: `foo2` can panic here
+  --> $DIR/dont_panic_2.rs:53:5
+   |
+52 | fn foo2() {
+   | ---------
+53 |     S(X).foo();
+   |     ^^^^^^^^^^
+note: `S::<X>::foo` can panic here
+  --> $DIR/dont_panic_2.rs:15:9
+   |
+14 |     fn foo(&self) {
+   |     -------------
+15 |         T::panic();
+   |         ^^^^^^^^^^
+note: `<X as Trait>::panic` can panic here
+  --> $DIR/dont_panic_2.rs:9:9
+   |
+8  |     fn panic() {
+   |     ----------
+9  |         panic!();
+   |         ^^^^^^^^
+
+error: calling `foo3` can panic
+  --> $DIR/dont_panic_2.rs:91:5
+   |
+91 |     foo3();
+   |     ^^^^^^ this call can panic
+   |
+note: `foo3` can panic here
+  --> $DIR/dont_panic_2.rs:56:5
+   |
+55 | fn foo3() {
+   | ---------
+56 |     S(X).from_trait();
+   |     ^^^^^^^^^^^^^^^^^
+note: `<S<X> as A<X>>::from_trait` can panic here
+  --> $DIR/dont_panic_2.rs:21:9
+   |
+20 |     fn from_trait(&self) {
+   |     --------------------
+21 |         T::panic();
+   |         ^^^^^^^^^^
+note: `<X as Trait>::panic` can panic here
+  --> $DIR/dont_panic_2.rs:9:9
+   |
+8  |     fn panic() {
+   |     ----------
+9  |         panic!();
+   |         ^^^^^^^^
+
+error: calling `foo4` can panic
+  --> $DIR/dont_panic_2.rs:92:5
+   |
+92 |     foo4();
+   |     ^^^^^^ this call can panic
+   |
+note: `foo4` can panic here
+  --> $DIR/dont_panic_2.rs:59:5
+   |
+58 | fn foo4() {
+   | ---------
+59 |     S(X).from_a_impl();
+   |     ^^^^^^^^^^^^^^^^^^
+note: `<S<X> as A<X>>::from_a_impl` can panic here
+  --> $DIR/dont_panic_2.rs:31:9
+   |
+30 |     fn from_a_impl(&self) {
+   |     ---------------------
+31 |         self.foo();
+   |         ^^^^^^^^^^
+note: `S::<X>::foo` can panic here
+  --> $DIR/dont_panic_2.rs:15:9
+   |
+14 |     fn foo(&self) {
+   |     -------------
+15 |         T::panic();
+   |         ^^^^^^^^^^
+note: `<X as Trait>::panic` can panic here
+  --> $DIR/dont_panic_2.rs:9:9
+   |
+8  |     fn panic() {
+   |     ----------
+9  |         panic!();
+   |         ^^^^^^^^
+
+error: calling `foo5` can panic
+  --> $DIR/dont_panic_2.rs:93:5
+   |
+93 |     foo5();
+   |     ^^^^^^ this call can panic
+   |
+note: `foo5` can panic here
+  --> $DIR/dont_panic_2.rs:62:5
+   |
+61 | fn foo5() {
+   | ---------
+62 |     S(X).from_impl();
+   |     ^^^^^^^^^^^^^^^^
+note: `<S<X> as B<X>>::from_impl` can panic here
+  --> $DIR/dont_panic_2.rs:36:9
+   |
+35 |     fn from_impl(&self) {
+   |     -------------------
+36 |         self.foo();
+   |         ^^^^^^^^^^
+note: `S::<X>::foo` can panic here
+  --> $DIR/dont_panic_2.rs:15:9
+   |
+14 |     fn foo(&self) {
+   |     -------------
+15 |         T::panic();
+   |         ^^^^^^^^^^
+note: `<X as Trait>::panic` can panic here
+  --> $DIR/dont_panic_2.rs:9:9
+   |
+8  |     fn panic() {
+   |     ----------
+9  |         panic!();
+   |         ^^^^^^^^
+
 error: calling `foo6` can panic
   --> $DIR/dont_panic_2.rs:94:5
    |
@@ -104,6 +230,55 @@ note: `foo6::{closure#0}` can panic here
 66 |         panic!();
    |         ^^^^^^^^
 
+error: calling `S::<X>::foo` can panic when the caller is monomorphized as `<S<X> as B<X>>::from_impl`
+  --> $DIR/dont_panic_2.rs:36:9
+   |
+36 |         self.foo();
+   |         ^^^^^^^^^^ this call can panic
+   |
+note: `S::<X>::foo` can panic here
+  --> $DIR/dont_panic_2.rs:15:9
+   |
+14 |     fn foo(&self) {
+   |     -------------
+15 |         T::panic();
+   |         ^^^^^^^^^^
+note: `<X as Trait>::panic` can panic here
+  --> $DIR/dont_panic_2.rs:9:9
+   |
+8  |     fn panic() {
+   |     ----------
+9  |         panic!();
+   |         ^^^^^^^^
+
+error: calling `<S<X> as B<X>>::from_impl` can panic
+  --> $DIR/dont_panic_2.rs:62:5
+   |
+62 |     S(X).from_impl();
+   |     ^^^^^^^^^^^^^^^^ this call can panic
+   |
+note: `<S<X> as B<X>>::from_impl` can panic here
+  --> $DIR/dont_panic_2.rs:36:9
+   |
+35 |     fn from_impl(&self) {
+   |     -------------------
+36 |         self.foo();
+   |         ^^^^^^^^^^
+note: `S::<X>::foo` can panic here
+  --> $DIR/dont_panic_2.rs:15:9
+   |
+14 |     fn foo(&self) {
+   |     -------------
+15 |         T::panic();
+   |         ^^^^^^^^^^
+note: `<X as Trait>::panic` can panic here
+  --> $DIR/dont_panic_2.rs:9:9
+   |
+8  |     fn panic() {
+   |     ----------
+9  |         panic!();
+   |         ^^^^^^^^
+
 error: calling `foo1` can panic
   --> $DIR/dont_panic_2.rs:82:5
    |
@@ -117,6 +292,62 @@ note: `foo1` can panic here
    | ---------
 50 |     panic!("shouldn't happen!");
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: calling `<X as Trait>::panic` can panic when the caller is monomorphized as `<S<X> as A<X>>::from_trait`
+  --> $DIR/dont_panic_2.rs:21:9
+   |
+21 |         T::panic();
+   |         ^^^^^^^^^^ this call can panic
+   |
+note: `<X as Trait>::panic` can panic here
+  --> $DIR/dont_panic_2.rs:9:9
+   |
+8  |     fn panic() {
+   |     ----------
+9  |         panic!();
+   |         ^^^^^^^^
+
+error: calling `<S<X> as A<X>>::from_a_impl` can panic
+  --> $DIR/dont_panic_2.rs:59:5
+   |
+59 |     S(X).from_a_impl();
+   |     ^^^^^^^^^^^^^^^^^^ this call can panic
+   |
+note: `<S<X> as A<X>>::from_a_impl` can panic here
+  --> $DIR/dont_panic_2.rs:31:9
+   |
+30 |     fn from_a_impl(&self) {
+   |     ---------------------
+31 |         self.foo();
+   |         ^^^^^^^^^^
+note: `S::<X>::foo` can panic here
+  --> $DIR/dont_panic_2.rs:15:9
+   |
+14 |     fn foo(&self) {
+   |     -------------
+15 |         T::panic();
+   |         ^^^^^^^^^^
+note: `<X as Trait>::panic` can panic here
+  --> $DIR/dont_panic_2.rs:9:9
+   |
+8  |     fn panic() {
+   |     ----------
+9  |         panic!();
+   |         ^^^^^^^^
+
+error: calling `<X as Trait>::panic` can panic when the caller is monomorphized as `S::<X>::foo`
+  --> $DIR/dont_panic_2.rs:15:9
+   |
+15 |         T::panic();
+   |         ^^^^^^^^^^ this call can panic
+   |
+note: `<X as Trait>::panic` can panic here
+  --> $DIR/dont_panic_2.rs:9:9
+   |
+8  |     fn panic() {
+   |     ----------
+9  |         panic!();
+   |         ^^^^^^^^
 
 error: calling `S::<X>::foo` can panic when the caller is monomorphized as `<S<X> as A<X>>::from_a_impl`
   --> $DIR/dont_panic_2.rs:31:9
@@ -139,20 +370,6 @@ note: `<X as Trait>::panic` can panic here
 9  |         panic!();
    |         ^^^^^^^^
 
-error: calling `<X as Trait>::panic` can panic when the caller is monomorphized as `<S<X> as A<X>>::from_trait`
-  --> $DIR/dont_panic_2.rs:21:9
-   |
-21 |         T::panic();
-   |         ^^^^^^^^^^ this call can panic
-   |
-note: `<X as Trait>::panic` can panic here
-  --> $DIR/dont_panic_2.rs:9:9
-   |
-8  |     fn panic() {
-   |     ----------
-9  |         panic!();
-   |         ^^^^^^^^
-
 error: calling `<S<X> as A<X>>::from_trait` can panic
   --> $DIR/dont_panic_2.rs:56:5
    |
@@ -166,41 +383,6 @@ note: `<S<X> as A<X>>::from_trait` can panic here
    |     --------------------
 21 |         T::panic();
    |         ^^^^^^^^^^
-note: `<X as Trait>::panic` can panic here
-  --> $DIR/dont_panic_2.rs:9:9
-   |
-8  |     fn panic() {
-   |     ----------
-9  |         panic!();
-   |         ^^^^^^^^
-
-error: calling `S::<X>::foo` can panic when the caller is monomorphized as `<S<X> as B<X>>::from_impl`
-  --> $DIR/dont_panic_2.rs:36:9
-   |
-36 |         self.foo();
-   |         ^^^^^^^^^^ this call can panic
-   |
-note: `S::<X>::foo` can panic here
-  --> $DIR/dont_panic_2.rs:15:9
-   |
-14 |     fn foo(&self) {
-   |     -------------
-15 |         T::panic();
-   |         ^^^^^^^^^^
-note: `<X as Trait>::panic` can panic here
-  --> $DIR/dont_panic_2.rs:9:9
-   |
-8  |     fn panic() {
-   |     ----------
-9  |         panic!();
-   |         ^^^^^^^^
-
-error: calling `<X as Trait>::panic` can panic when the caller is monomorphized as `S::<X>::foo`
-  --> $DIR/dont_panic_2.rs:15:9
-   |
-15 |         T::panic();
-   |         ^^^^^^^^^^ this call can panic
-   |
 note: `<X as Trait>::panic` can panic here
   --> $DIR/dont_panic_2.rs:9:9
    |
@@ -242,5 +424,5 @@ note: `foo7::{closure#0}` can panic here
 71 |     let x =  || panic!();
    |              -- ^^^^^^^^
 
-error: aborting due to 14 previous errors
+error: aborting due to 20 previous errors
 

@@ -10,6 +10,34 @@ note: the lint level is defined here
 2  | #![deny(redpen::dont_panic)]
    |         ^^^^^^^^^^^^^^^^^^
 
+error: calling `<S as A>::from_trait` can panic when the caller is monomorphized as `impl_fn::<S>`
+  --> $DIR/dont_panic.rs:45:5
+   |
+45 |     x.from_trait();
+   |     ^^^^^^^^^^^^^^ this call can panic
+   |
+note: `<S as A>::from_trait` can panic here
+  --> $DIR/dont_panic.rs:13:9
+   |
+12 |     fn from_trait(&self) {
+   |     --------------------
+13 |         panic!();
+   |         ^^^^^^^^
+
+error: calling `<S as A>::from_a_impl` can panic when the caller is monomorphized as `impl_fn::<S>`
+  --> $DIR/dont_panic.rs:46:5
+   |
+46 |     x.from_a_impl();
+   |     ^^^^^^^^^^^^^^^ this call can panic
+   |
+note: `<S as A>::from_a_impl` can panic here
+  --> $DIR/dont_panic.rs:23:9
+   |
+22 |     fn from_a_impl(&self) {
+   |     ---------------------
+23 |         panic!();
+   |         ^^^^^^^^
+
 error: calling `S::foo` can panic
   --> $DIR/dont_panic.rs:54:5
    |
@@ -204,34 +232,6 @@ note: `impl_fn::<S>` can panic here
    |     ^^^^^^^^^^^^^^
 46 |     x.from_a_impl();
    |     ^^^^^^^^^^^^^^^
-
-error: calling `<S as A>::from_trait` can panic when the caller is monomorphized as `impl_fn::<S>`
-  --> $DIR/dont_panic.rs:45:5
-   |
-45 |     x.from_trait();
-   |     ^^^^^^^^^^^^^^ this call can panic
-   |
-note: `<S as A>::from_trait` can panic here
-  --> $DIR/dont_panic.rs:13:9
-   |
-12 |     fn from_trait(&self) {
-   |     --------------------
-13 |         panic!();
-   |         ^^^^^^^^
-
-error: calling `<S as A>::from_a_impl` can panic when the caller is monomorphized as `impl_fn::<S>`
-  --> $DIR/dont_panic.rs:46:5
-   |
-46 |     x.from_a_impl();
-   |     ^^^^^^^^^^^^^^^ this call can panic
-   |
-note: `<S as A>::from_a_impl` can panic here
-  --> $DIR/dont_panic.rs:23:9
-   |
-22 |     fn from_a_impl(&self) {
-   |     ---------------------
-23 |         panic!();
-   |         ^^^^^^^^
 
 error: calling `foo` can panic
   --> $DIR/dont_panic.rs:75:5

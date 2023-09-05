@@ -18,10 +18,10 @@ use rustc_middle::mir::{self, Local, Location};
 use rustc_middle::query::TyCtxtAt;
 use rustc_middle::ty::adjustment::{CustomCoerceUnsized, PointerCoercion};
 use rustc_middle::ty::print::with_no_trimmed_paths;
-use rustc_middle::ty::subst::{GenericArgKind, InternalSubsts};
 use rustc_middle::ty::{
     self, GenericParamDefKind, Instance, Ty, TyCtxt, TypeFoldable, TypeVisitableExt, VtblEntry,
 };
+use rustc_middle::ty::{GenericArgKind, GenericArgs};
 use rustc_middle::{bug, span_bug};
 use rustc_middle::{middle::codegen_fn_attrs::CodegenFnAttrFlags, mir::visit::TyContext};
 use rustc_session::config::EntryFnType;
@@ -485,7 +485,7 @@ fn check_recursion_limit<'tcx>(
 
 fn check_type_length_limit<'tcx>(tcx: TyCtxt<'tcx>, instance: Instance<'tcx>) {
     let type_length = instance
-        .substs
+        .args
         .iter()
         .flat_map(|arg| arg.walk())
         .filter(|arg| match arg.unpack() {
@@ -733,7 +733,7 @@ impl<'a, 'tcx> MirVisitor<'tcx> for MirUsedCollector<'a, 'tcx> {
                 let instance = Instance::mono(tcx, tcx.require_lang_item(lang_item, Some(source)));
                 self.output.push(create_fn_mono_item(tcx, instance, source));
             }
-            mir::TerminatorKind::Terminate { .. } => {
+            mir::TerminatorKind::UnwindTerminate { .. } => {
                 let instance = Instance::mono(
                     tcx,
                     tcx.require_lang_item(LangItem::PanicCannotUnwind, Some(source)),
@@ -742,7 +742,7 @@ impl<'a, 'tcx> MirVisitor<'tcx> for MirUsedCollector<'a, 'tcx> {
             }
             mir::TerminatorKind::Goto { .. }
             | mir::TerminatorKind::SwitchInt { .. }
-            | mir::TerminatorKind::Resume
+            | mir::TerminatorKind::UnwindResume
             | mir::TerminatorKind::Return
             | mir::TerminatorKind::Unreachable => {}
             mir::TerminatorKind::GeneratorDrop
@@ -824,7 +824,7 @@ fn visit_instance_use<'tcx>(
         }
         ty::InstanceDef::Virtual(def_id, _) => {
             // Collect trait object calls
-            trait_objects.push((source, def_id, instance.substs));
+            trait_objects.push((source, def_id, instance.args));
         }
         ty::InstanceDef::ThreadLocalShim(..) => {
             bug!("{:?} being reified", instance);
@@ -1065,7 +1065,7 @@ impl<'v> RootCollector<'_, 'v> {
                     debug!("RootCollector: ADT drop-glue for {id:?}",);
 
                     let item = self.tcx.hir().item(id);
-                    let ty = Instance::new(item.owner_id.to_def_id(), InternalSubsts::empty())
+                    let ty = Instance::new(item.owner_id.to_def_id(), GenericArgs::empty())
                         .ty(self.tcx, ty::ParamEnv::reveal_all());
                     visit_drop_use(
                         self.tcx,
@@ -1179,7 +1179,7 @@ impl<'v> RootCollector<'_, 'v> {
             self.tcx,
             ty::ParamEnv::reveal_all(),
             start_def_id,
-            self.tcx.mk_substs(&[main_ret_ty.into()]),
+            self.tcx.mk_args(&[main_ret_ty.into()]),
         )
         .unwrap()
         .unwrap();
@@ -1215,7 +1215,7 @@ fn create_mono_items_for_default_impls<'tcx>(
         return;
     };
 
-    let trait_ref = trait_ref.subst_identity();
+    let trait_ref = trait_ref.instantiate_identity();
 
     let param_env = ty::ParamEnv::reveal_all();
     let trait_ref = tcx.normalize_erasing_regions(param_env, trait_ref);
@@ -1233,10 +1233,10 @@ fn create_mono_items_for_default_impls<'tcx>(
             continue;
         }
 
-        let substs = InternalSubsts::for_item(tcx, method.def_id, |param, _| match param.kind {
+        let substs = GenericArgs::for_item(tcx, method.def_id, |param, _| match param.kind {
             GenericParamDefKind::Lifetime => tcx.lifetimes.re_erased.into(),
             GenericParamDefKind::Type { .. } | GenericParamDefKind::Const { .. } => {
-                trait_ref.substs[param.index as usize]
+                trait_ref.args[param.index as usize]
             }
         });
         let instance = ty::Instance::expect_resolve(tcx, param_env, method.def_id, substs);

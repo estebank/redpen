@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Rust linter"
 authors = ["Esteban Küber <esteban@kuber.com.ar>"]
-rust-version = "1.72.0"
+#rust-version = "nightly-2023-09-04"
 documentation = "https://docs.rs/redpen-linter"
 repository = "https://github.com/estebank/redpen"
 
@@ -17,7 +17,7 @@ compiletest_rs = { version = "0.10", features = [ "tmp" ] }
 
 [package.metadata.rust-analyzer]
 # This crate uses #![feature(rustc_private)] to access `rustc` APIs.
-# We're tied to the specific `rustc` version 1.72.0.
+# We're tied to the specific `rustc` version 1.74.0-nigthly 2023-09-04.
 rustc_private = true
 
 [[bin]]

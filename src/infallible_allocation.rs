@@ -153,12 +153,12 @@ impl<'tcx> LateLintPass<'tcx> for InfallibleAllocation {
                 let accessee = item.node;
 
                 if !accessee.def_id().is_local() && infallible.contains(&accessee) {
-                    let is_generic = accessor.substs.non_erasable_generics().next().is_some();
+                    let is_generic = accessor.args.non_erasable_generics().next().is_some();
                     let generic_note = if is_generic {
                         format!(
                             " when the caller is monomorphized as `{}`",
                             cx.tcx
-                                .def_path_str_with_substs(accessor.def_id(), accessor.substs)
+                                .def_path_str_with_args(accessor.def_id(), accessor.args)
                         )
                     } else {
                         String::new()
@@ -166,7 +166,7 @@ impl<'tcx> LateLintPass<'tcx> for InfallibleAllocation {
 
                     let accessee_path = cx
                         .tcx
-                        .def_path_str_with_substs(accessee.def_id(), accessee.substs);
+                        .def_path_str_with_args(accessee.def_id(), accessee.args);
 
                     cx.struct_span_lint(
                         &INFALLIBLE_ALLOCATION,
@@ -181,7 +181,7 @@ impl<'tcx> LateLintPass<'tcx> for InfallibleAllocation {
                             let mut visited = FxHashSet::default();
                             visited.insert(*accessor);
                             visited.insert(accessee);
-                            while caller.substs.non_erasable_generics().next().is_some() {
+                            while caller.args.non_erasable_generics().next().is_some() {
                                 let spanned_caller = match backward
                                     .get(&caller)
                                     .map(|x| &**x)
@@ -199,10 +199,7 @@ impl<'tcx> LateLintPass<'tcx> for InfallibleAllocation {
                                     spanned_caller.span,
                                     format!(
                                         "which is called from `{}`",
-                                        cx.tcx.def_path_str_with_substs(
-                                            caller.def_id(),
-                                            caller.substs
-                                        )
+                                        cx.tcx.def_path_str_with_args(caller.def_id(), caller.args)
                                     ),
                                 );
                             }
@@ -233,10 +230,7 @@ impl<'tcx> LateLintPass<'tcx> for InfallibleAllocation {
                                     format!(
                                         "{} calls into `{}`",
                                         msg,
-                                        cx.tcx.def_path_str_with_substs(
-                                            callee.def_id(),
-                                            callee.substs
-                                        )
+                                        cx.tcx.def_path_str_with_args(callee.def_id(), callee.args)
                                     ),
                                 );
                                 msg = "which";

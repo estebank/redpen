@@ -32,14 +32,14 @@ fn main() {
     // Get the rustc library path
     if let Ok(mut path) = home::rustup_home() {
         path.push("toolchains");
-        path.push(&format!("1.72.0-{target}"));
+        path.push(&format!("nightly-2023-09-04-{target}"));
         path.push("lib");
         std::env::set_var("LD_LIBRARY_PATH", path.to_str().unwrap());
     }
 
     let mut cmd = Command::new("cargo")
         .args([
-            "+1.72.0",
+            "+nightly-2023-09-04",
             "build",
             "-Zbuild-std",
             "--target",

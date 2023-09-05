@@ -26,7 +26,7 @@ The tool is named after the writing instrument a teacher would use to mark mista
 
 ## Installation and usage
 
-There are two ways of using this tool. If you are only interested in using existing lints, you can install through `cargo` with `RUSTC_BOOTSTRAP=1 cargo +1.72.0 install redpen-linter`. After that you can invoke `redpen` as if you were invoking `cargo check`. You must ensure that the appropriate Rust 1.72 compiler is installed with `rustup toolchain add 1.72.0`, as `redpen` is tightly coupled with a specific compiler version's internal APIs. Additionally, you must also add the following to your `Cargo.toml` in the `[dependencies]` section:
+There are two ways of using this tool. If you are only interested in using existing lints, you can install through `cargo` with `cargo +nightly-2023-09-04 install redpen-linter`. After that you can invoke `redpen` as if you were invoking `cargo check`. You must ensure that the appropriate Rust 1.72 compiler is installed with `rustup toolchain add nightly-2023-09-04`, as `redpen` is tightly coupled with a specific compiler version's internal APIs. Additionally, you must also add the following to your `Cargo.toml` in the `[dependencies]` section:
 
 ```
 [dependencies]
@@ -40,7 +40,7 @@ If you want to keep your own set of lints, then you'll have to keep your own wor
 Clone this repository and run `cargo install`:
 
 ```console
-export LD_LIBRARY_PATH=$(rustup run 1.72.0 bash -c "echo \$LD_LIBRARY_PATH")
+export LD_LIBRARY_PATH=$(rustup run nightly-2023-09-04 bash -c "echo \$LD_LIBRARY_PATH")
 git clone https://github.com/estebank/redpen.git
 cd redpen
 cargo install --path .
@@ -134,11 +134,11 @@ This linter is implemented as a `rustc_driver`, effectively a different entry po
 `cargo-redpen` is a small CLI that invokes `cargo build` with the appropriate environement variables. It executes:
 
 ```console
-export LD_LIBRARY_PATH=$(rustup run 1.72.0 bash -c "echo \$LD_LIBRARY_PATH")
+export LD_LIBRARY_PATH=$(rustup run nightly-2023-09-04 bash -c "echo \$LD_LIBRARY_PATH")
 
 RUSTC_WRAPPER=$PATH_TO/redpen_wrapper \
 RUSTC_BOOTSTRAP=1 \
-cargo +1.72.0 build \
+cargo +nightly-2023-09-04 build \
 -Zbuild-std \
 --target x86_64-unknown-linux-gnu # haven't tried in other platforms, experiment replacing this for your case
 ```
