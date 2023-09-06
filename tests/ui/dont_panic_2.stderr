@@ -1,4 +1,4 @@
-error: indexing operations can panic if the indexed value isn't present
+error: indexing operations can panic if the indexed value is out of bounds
   --> $DIR/dont_panic_2.rs:78:13
    |
 78 |     let _ = x[1];

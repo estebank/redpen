@@ -4,11 +4,13 @@ use hir::def_id::DefId;
 use rustc_errors::MultiSpan;
 use rustc_hir as hir;
 use rustc_hir::intravisit::Visitor;
+use rustc_hir_typeck::{FnCtxt, Inherited};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::mir::mono::MonoItem;
 use rustc_middle::ty::{self, Instance, TyCtxt};
 use rustc_session::{declare_tool_lint, impl_lint_pass};
 use rustc_span::source_map::Spanned;
+use rustc_span::symbol::Ident;
 use rustc_span::Span;
 
 use crate::attribute::{parse_redpen_attribute as parse_attr, RedpenAttribute};
@@ -98,29 +100,52 @@ impl<'tcx> Visitor<'tcx> for DontPanic<'tcx> {
     fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
         self.map.insert(expr.span, expr.hir_id);
         match expr.kind {
-            hir::ExprKind::Index(_rcvr, _idx, _span) => {
-                // FIXME: we really want to do the following in order to explicitly check if the
-                // impl could panic.
-                // let method = fcx.try_overloaded_place_op(
-                //     expr.span,
-                //     rcvr_ty,
-                //     &[idx_ty],
-                //     rustc_hir_typeck::PlaceOp::Index,
-                // );
-                // In the meantime, until we can make try_overloaded_place_op public, we always
-                // complain about index access :-/
-                // let Some(tr) = self.tcx.lang_items().index_trait() else {
-                //     return;
-                // };
+            hir::ExprKind::Index(rcvr, _idx, _span) => {
                 // FIXME: follow `wont_panic` directive. Should `wont_panic` also mean
                 // `allow(redpen::dont_panic)`? I don't think so.
-                self.tcx.struct_span_lint_hir(
-                    &DONT_PANIC,
-                    expr.hir_id,
-                    expr.span,
-                    "indexing operations can panic if the indexed value isn't present",
-                    |diag| diag,
-                );
+                let Some(tr) = self.tcx.lang_items().index_trait() else {
+                    hir::intravisit::walk_expr(self, expr);
+                    return;
+                };
+                let parent_item = self.tcx.hir().get_parent_item(expr.hir_id).def_id;
+                let inh = Inherited::new(self.tcx, parent_item);
+                let fcx = FnCtxt::new(&inh, self.tcx.param_env(parent_item), parent_item);
+                let rcvr_ty = if let Some(rcvr_ty) = fcx.node_ty_opt(rcvr.hir_id) {
+                    rcvr_ty
+                } else if let Some(rcvr_ty) = self
+                    .tcx
+                    .has_typeck_results(parent_item)
+                    .then(|| self.tcx.typeck(parent_item))
+                    .and_then(|typeck| typeck.node_type_opt(rcvr.hir_id))
+                {
+                    rcvr_ty
+                } else {
+                    hir::intravisit::walk_expr(self, expr);
+                    return;
+                };
+                for name in [*crate::symbol::index, *crate::symbol::index_mut] {
+                    let ident = Ident::with_dummy_span(name);
+                    let mut relevant = vec![];
+                    self.tcx
+                        .for_each_relevant_impl(tr, rcvr_ty, |def_id| relevant.push(def_id));
+                    if let [relevant] = &relevant[..]
+                        && let Some(assoc) = self
+                            .tcx
+                            .associated_items(relevant)
+                            .find_by_name_and_kind(self.tcx, ident, ty::AssocKind::Fn, *relevant)
+                    {
+                        if self.affected.contains(&assoc.def_id) {
+                            self.tcx.struct_span_lint_hir(
+                                &DONT_PANIC,
+                                expr.hir_id,
+                                expr.span,
+                                "indexing operations can panic if the indexed value is out of \
+                                 bounds",
+                                |diag| diag,
+                            );
+                        }
+                    }
+                }
             }
             _ => {}
         }
@@ -189,7 +214,11 @@ impl<'tcx> LateLintPass<'tcx> for DontPanic<'tcx> {
         for (accessee, accessed) in &backward {
             let name = self.tcx.def_path_str(accessee.def_id());
             match name.as_str() {
-                "core::panicking::panic_fmt" | "core::panicking::panic" | "std::rt::panic_fmt" => {
+                "<usize as std::slice::SliceIndex<[T]>>::index"
+                | "<usize as std::slice::SliceIndex<[T]>>::index_mut"
+                | "core::panicking::panic_fmt"
+                | "core::panicking::panic"
+                | "std::rt::panic_fmt" => {
                     visited.insert(*accessee);
                     affected.insert(*accessee);
                     root.insert(*accessee);

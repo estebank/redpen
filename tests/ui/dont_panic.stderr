@@ -1,4 +1,4 @@
-error: indexing operations can panic if the indexed value isn't present
+error: indexing operations can panic if the indexed value is out of bounds
   --> $DIR/dont_panic.rs:69:13
    |
 69 |     let _ = x[1];
@@ -134,6 +134,9 @@ note: `foo` can panic here
 66 |       x();
    |       ^^^
 ...
+69 |       let _ = x[1];
+   |                ^^^
+70 |       might_panic();
 71 |       panic!("shouldn't happen!");
    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -172,6 +175,9 @@ note: `foo` can panic here
 66 |       x();
    |       ^^^
 ...
+69 |       let _ = x[1];
+   |                ^^^
+70 |       might_panic();
 71 |       panic!("shouldn't happen!");
    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -261,6 +267,9 @@ note: `foo` can panic here
 66 |       x();
    |       ^^^
 ...
+69 |       let _ = x[1];
+   |                ^^^
+70 |       might_panic();
 71 |       panic!("shouldn't happen!");
    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

@@ -1,4 +1,4 @@
-error: indexing operations can panic if the indexed value isn't present
+error: indexing operations can panic if the indexed value is out of bounds
  --> $DIR/dont_panic_idx.rs:7:13
   |
 7 |     let _ = x[1];
@@ -10,5 +10,11 @@ note: the lint level is defined here
 2 | #![deny(redpen::dont_panic)]
   |         ^^^^^^^^^^^^^^^^^^
 
-error: aborting due to previous error
+error: indexing operations can panic if the indexed value is out of bounds
+ --> $DIR/dont_panic_idx.rs:8:5
+  |
+8 |     x[1] = "";
+  |     ^^^^
+
+error: aborting due to 2 previous errors
 
