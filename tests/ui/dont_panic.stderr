@@ -1,305 +1,248 @@
-error: indexing operations can panic if the indexed value is out of bounds
-  --> $DIR/dont_panic.rs:69:13
-   |
-69 |     let _ = x[1];
-   |             ^^^^
-   |
-note: the lint level is defined here
-  --> $DIR/dont_panic.rs:2:9
-   |
-2  | #![deny(redpen::dont_panic)]
-   |         ^^^^^^^^^^^^^^^^^^
+warning: calling `foo` can unsafe
+    --> $DIR/dont_panic.rs:68:5
+     |
+68   |     x.push("");
+     |     ^^^^^^^^^^ this can unsafe
+     |
+note: `std::vec::Vec::<&str>::push` can unsafe here
+    --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs:1880:13
+     |
+1876 |     pub fn push(&mut self, value: T) {
+     |     --------------------------------
+...
+1880 |             self.buf.reserve_for_push(self.len);
+     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: `alloc::raw_vec::RawVec::<&str>::reserve_for_push` can unsafe here
+    --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/raw_vec.rs:302:24
+     |
+301  |     pub fn reserve_for_push(&mut self, len: usize) {
+     |     ----------------------------------------------
+302  |         handle_reserve(self.grow_amortized(len, 1));
+     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: `alloc::raw_vec::RawVec::<&str>::grow_amortized` can unsafe here
+    --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/raw_vec.rs:404:19
+     |
+383  |     fn grow_amortized(&mut self, len: usize, additional: usize) -> Result<(), TryReserveError> {
+     |     ------------------------------------------------------------------------------------------
+...
+404  |         let ptr = finish_grow(new_layout, self.current_memory(), &mut self.alloc)?;
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: `alloc::raw_vec::finish_grow::<std::alloc::Global>` can unsafe here
+    --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/raw_vec.rs:482:13
+     |
+464  | / fn finish_grow<A>(
+465  | |     new_layout: Result<Layout, LayoutError>,
+466  | |     current_memory: Option<(NonNull<u8>, Layout)>,
+467  | |     alloc: &mut A,
+468  | | ) -> Result<NonNull<[u8]>, TryReserveError>
+469  | | where
+470  | |     A: Allocator,
+     | |_________________-
+...
+482  |               alloc.grow(ptr, old_layout, new_layout)
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+485  |           alloc.allocate(new_layout)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: `#[warn(redpen::call_unsafe)]` on by default
 
-error: calling `<S as A>::from_trait` can panic when the caller is monomorphized as `impl_fn::<S>`
-  --> $DIR/dont_panic.rs:45:5
-   |
-45 |     x.from_trait();
-   |     ^^^^^^^^^^^^^^ this call can panic
-   |
-note: `<S as A>::from_trait` can panic here
-  --> $DIR/dont_panic.rs:13:9
-   |
-12 |     fn from_trait(&self) {
-   |     --------------------
-13 |         panic!();
-   |         ^^^^^^^^
+warning: calling `foo` can unsafe
+   --> $DIR/dont_panic.rs:72:1
+    |
+72  | }
+    | ^ this can unsafe
+    |
+note: `std::ptr::drop_in_place::<std::vec::Vec<&str>>` can unsafe here
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/mod.rs:497:1
+    |
+497 | pub unsafe fn drop_in_place<T: ?Sized>(to_drop: *mut T) {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: calling `<S as A>::from_a_impl` can panic when the caller is monomorphized as `impl_fn::<S>`
-  --> $DIR/dont_panic.rs:46:5
-   |
-46 |     x.from_a_impl();
-   |     ^^^^^^^^^^^^^^^ this call can panic
-   |
-note: `<S as A>::from_a_impl` can panic here
-  --> $DIR/dont_panic.rs:23:9
-   |
-22 |     fn from_a_impl(&self) {
-   |     ---------------------
-23 |         panic!();
-   |         ^^^^^^^^
-
-error: calling `S::foo` can panic
-  --> $DIR/dont_panic.rs:54:5
-   |
-54 |     S.foo();
-   |     ^^^^^^^ this call can panic
-   |
-note: `S::foo` can panic here
-  --> $DIR/dont_panic.rs:7:9
-   |
-6  |     fn foo(&self) {
-   |     -------------
-7  |         panic!("");
-   |         ^^^^^^^^^^
-
-error: calling `<S as A>::from_trait` can panic
-  --> $DIR/dont_panic.rs:55:5
-   |
-55 |     S.from_trait();
-   |     ^^^^^^^^^^^^^^ this call can panic
-   |
-note: `<S as A>::from_trait` can panic here
-  --> $DIR/dont_panic.rs:13:9
-   |
-12 |     fn from_trait(&self) {
-   |     --------------------
-13 |         panic!();
-   |         ^^^^^^^^
-
-error: calling `<S as A>::from_a_impl` can panic
-  --> $DIR/dont_panic.rs:56:5
-   |
-56 |     S.from_a_impl();
-   |     ^^^^^^^^^^^^^^^ this call can panic
-   |
-note: `<S as A>::from_a_impl` can panic here
-  --> $DIR/dont_panic.rs:23:9
-   |
-22 |     fn from_a_impl(&self) {
-   |     ---------------------
-23 |         panic!();
-   |         ^^^^^^^^
-
-error: calling `<S as B>::from_impl` can panic
-  --> $DIR/dont_panic.rs:57:5
-   |
-57 |     S.from_impl();
-   |     ^^^^^^^^^^^^^ this call can panic
-   |
-note: `<S as B>::from_impl` can panic here
-  --> $DIR/dont_panic.rs:29:9
-   |
-28 |     fn from_impl(&self) {
-   |     -------------------
-29 |         panic!();
-   |         ^^^^^^^^
-
-error: calling `foo::{closure#1}` can panic
-  --> $DIR/dont_panic.rs:66:5
-   |
-66 |     x();
-   |     ^^^ this call can panic
-   |
-note: `foo::{closure#1}` can panic here
-  --> $DIR/dont_panic.rs:65:17
-   |
-65 |     let x =  || panic!();
-   |              -- ^^^^^^^^
-
-error: calling `foo` can panic
+warning: calling `main` can unsafe
   --> $DIR/dont_panic.rs:85:5
    |
 85 |     foo();
-   |     ^^^^^ this call can panic
+   |     ^^^^^ this can unsafe
    |
-note: `foo` can panic here
-  --> $DIR/dont_panic.rs:54:5
+note: `foo` can unsafe here
+  --> $DIR/dont_panic.rs:68:5
    |
-53 |   fn foo() {
-   |   --------
-54 |       S.foo();
-   |       ^^^^^^^
-55 |       S.from_trait();
-   |       ^^^^^^^^^^^^^^
-56 |       S.from_a_impl();
-   |       ^^^^^^^^^^^^^^^
-57 |       S.from_impl();
-   |       ^^^^^^^^^^^^^
+53 | fn foo() {
+   | --------
 ...
-61 | /     (|| {
-62 | |         panic!();
-63 | |     })();
-   | |________^
+68 |     x.push("");
+   |     ^^^^^^^^^^
 ...
-66 |       x();
-   |       ^^^
-...
-69 |       let _ = x[1];
-   |                ^^^
-70 |       might_panic();
-71 |       panic!("shouldn't happen!");
-   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+72 | }
+   | ^
 
-error: calling `bar` can panic
+warning: calling `main` can unsafe
   --> $DIR/dont_panic.rs:86:5
    |
 86 |     bar();
-   |     ^^^^^ this call can panic
+   |     ^^^^^ this can unsafe
    |
-note: `bar` can panic here
+note: `bar` can unsafe here
   --> $DIR/dont_panic.rs:75:5
    |
 74 | fn bar() {
    | --------
 75 |     foo();
    |     ^^^^^
-note: `foo` can panic here
-  --> $DIR/dont_panic.rs:54:5
+note: `foo` can unsafe here
+  --> $DIR/dont_panic.rs:68:5
    |
-53 |   fn foo() {
-   |   --------
-54 |       S.foo();
-   |       ^^^^^^^
-55 |       S.from_trait();
-   |       ^^^^^^^^^^^^^^
-56 |       S.from_a_impl();
-   |       ^^^^^^^^^^^^^^^
-57 |       S.from_impl();
-   |       ^^^^^^^^^^^^^
+53 | fn foo() {
+   | --------
 ...
-61 | /     (|| {
-62 | |         panic!();
-63 | |     })();
-   | |________^
+68 |     x.push("");
+   |     ^^^^^^^^^^
 ...
-66 |       x();
-   |       ^^^
-...
-69 |       let _ = x[1];
-   |                ^^^
-70 |       might_panic();
-71 |       panic!("shouldn't happen!");
-   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+72 | }
+   | ^
 
-error: calling `<S as A>::from_trait` can panic
-  --> $DIR/dont_panic.rs:88:18
+warning: calling `main` can unsafe
+   --> $DIR/dont_panic.rs:88:18
+    |
+88  |     trait_object(Box::new(S));
+    |                  ^^^^^^^^^^^ this can unsafe
+    |
+note: `std::boxed::Box::<S>::new` can unsafe here
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/boxed.rs:217:9
+    |
+215 |     pub fn new(x: T) -> Self {
+    |     ------------------------
+216 |         #[rustc_box]
+217 |         Box::new(x)
+    |         ^^^^^^^^^^^
+note: `alloc::alloc::exchange_malloc` can unsafe here
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/alloc.rs:241:9
+    |
+241 |         self.alloc_impl(layout, false)
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+328 | unsafe fn exchange_malloc(size: usize, align: usize) -> *mut u8 {
+    | ---------------------------------------------------------------
+note: `std::alloc::Global::alloc_impl` can unsafe here
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/alloc.rs:98:9
+    |
+98  |         __rust_alloc(layout.size(), layout.align())
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+170 |     unsafe { __rust_alloc_zeroed(layout.size(), layout.align()) }
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+176 |     fn alloc_impl(&self, layout: Layout, zeroed: bool) -> Result<NonNull<[u8]>, AllocError> {
+    |     ---------------------------------------------------------------------------------------
+
+warning: calling `main` can unsafe
+  --> $DIR/dont_panic.rs:88:5
    |
 88 |     trait_object(Box::new(S));
-   |                  ^^^^^^^^^^^ this call can panic
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^ this can unsafe
    |
-note: `<S as A>::from_trait` can panic here
-  --> $DIR/dont_panic.rs:13:9
+note: `trait_object` can unsafe here
+  --> $DIR/dont_panic.rs:51:1
    |
-12 |     fn from_trait(&self) {
-   |     --------------------
-13 |         panic!();
-   |         ^^^^^^^^
+48 | fn trait_object(x: Box<dyn A>) {
+   | ------------------------------
+...
+51 | }
+   | ^
 
-error: calling `<S as A>::from_a_impl` can panic
-  --> $DIR/dont_panic.rs:88:18
-   |
-88 |     trait_object(Box::new(S));
-   |                  ^^^^^^^^^^^ this call can panic
-   |
-note: `<S as A>::from_a_impl` can panic here
-  --> $DIR/dont_panic.rs:23:9
-   |
-22 |     fn from_a_impl(&self) {
-   |     ---------------------
-23 |         panic!();
-   |         ^^^^^^^^
+warning: calling `main` can unsafe
+   --> $DIR/dont_panic.rs:89:18
+    |
+89  |     trait_object(Box::new(X));
+    |                  ^^^^^^^^^^^ this can unsafe
+    |
+note: `std::boxed::Box::<X>::new` can unsafe here
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/boxed.rs:217:9
+    |
+215 |     pub fn new(x: T) -> Self {
+    |     ------------------------
+216 |         #[rustc_box]
+217 |         Box::new(x)
+    |         ^^^^^^^^^^^
+note: `alloc::alloc::exchange_malloc` can unsafe here
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/alloc.rs:241:9
+    |
+241 |         self.alloc_impl(layout, false)
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+328 | unsafe fn exchange_malloc(size: usize, align: usize) -> *mut u8 {
+    | ---------------------------------------------------------------
+note: `std::alloc::Global::alloc_impl` can unsafe here
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/alloc.rs:98:9
+    |
+98  |         __rust_alloc(layout.size(), layout.align())
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+170 |     unsafe { __rust_alloc_zeroed(layout.size(), layout.align()) }
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+176 |     fn alloc_impl(&self, layout: Layout, zeroed: bool) -> Result<NonNull<[u8]>, AllocError> {
+    |     ---------------------------------------------------------------------------------------
 
-error: calling `boxed` can panic
-  --> $DIR/dont_panic.rs:90:18
+warning: calling `main` can unsafe
+  --> $DIR/dont_panic.rs:89:5
+   |
+89 |     trait_object(Box::new(X));
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^ this can unsafe
+   |
+note: `trait_object` can unsafe here
+  --> $DIR/dont_panic.rs:51:1
+   |
+48 | fn trait_object(x: Box<dyn A>) {
+   | ------------------------------
+...
+51 | }
+   | ^
+
+warning: calling `main` can unsafe
+  --> $DIR/dont_panic.rs:90:5
    |
 90 |     trait_object(boxed());
-   |                  ^^^^^^^ this call can panic
+   |     ^^^^^^^^^^^^^^^^^^^^^ this can unsafe
    |
-note: `boxed` can panic here
-  --> $DIR/dont_panic.rs:82:5
+note: `trait_object` can unsafe here
+  --> $DIR/dont_panic.rs:51:1
    |
-81 | fn boxed() -> Box<dyn A> {
-   | ------------------------
-82 |     unimplemented!();
-   |     ^^^^^^^^^^^^^^^^
+48 | fn trait_object(x: Box<dyn A>) {
+   | ------------------------------
+...
+51 | }
+   | ^
 
-error: calling `impl_fn::<S>` can panic
-  --> $DIR/dont_panic.rs:91:5
-   |
-91 |     impl_fn(S);
-   |     ^^^^^^^^^^ this call can panic
-   |
-note: `impl_fn::<S>` can panic here
-  --> $DIR/dont_panic.rs:45:5
-   |
-44 | fn impl_fn(x: impl A) {
-   | ---------------------
-45 |     x.from_trait();
-   |     ^^^^^^^^^^^^^^
-46 |     x.from_a_impl();
-   |     ^^^^^^^^^^^^^^^
+warning: calling `trait_object` can unsafe
+   --> $DIR/dont_panic.rs:51:1
+    |
+51  | }
+    | ^ this can unsafe
+    |
+note: `std::ptr::drop_in_place::<std::boxed::Box<dyn A>>` can unsafe here
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/mod.rs:497:1
+    |
+497 | pub unsafe fn drop_in_place<T: ?Sized>(to_drop: *mut T) {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: calling `foo` can panic
+warning: calling `bar` can unsafe
   --> $DIR/dont_panic.rs:75:5
    |
 75 |     foo();
-   |     ^^^^^ this call can panic
+   |     ^^^^^ this can unsafe
    |
-note: `foo` can panic here
-  --> $DIR/dont_panic.rs:54:5
+note: `foo` can unsafe here
+  --> $DIR/dont_panic.rs:68:5
    |
-53 |   fn foo() {
-   |   --------
-54 |       S.foo();
-   |       ^^^^^^^
-55 |       S.from_trait();
-   |       ^^^^^^^^^^^^^^
-56 |       S.from_a_impl();
-   |       ^^^^^^^^^^^^^^^
-57 |       S.from_impl();
-   |       ^^^^^^^^^^^^^
+53 | fn foo() {
+   | --------
 ...
-61 | /     (|| {
-62 | |         panic!();
-63 | |     })();
-   | |________^
+68 |     x.push("");
+   |     ^^^^^^^^^^
 ...
-66 |       x();
-   |       ^^^
-...
-69 |       let _ = x[1];
-   |                ^^^
-70 |       might_panic();
-71 |       panic!("shouldn't happen!");
-   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+72 | }
+   | ^
 
-error: calling `A` can panic in a trait object
-  --> $DIR/dont_panic.rs:49:5
-   |
-49 |     x.from_trait();
-   |     ^^^^^^^^^^^^^^
-   |
-note: the following `fn` definition can panic
-  --> $DIR/dont_panic.rs:13:9
-   |
-12 |     fn from_trait(&self) {
-   |     --------------------
-13 |         panic!();
-   |         ^^^^^^^^
-
-error: calling `A` can panic in a trait object
-  --> $DIR/dont_panic.rs:50:5
-   |
-50 |     x.from_a_impl();
-   |     ^^^^^^^^^^^^^^^
-   |
-note: the following `fn` definition can panic
-  --> $DIR/dont_panic.rs:23:9
-   |
-22 |     fn from_a_impl(&self) {
-   |     ---------------------
-23 |         panic!();
-   |         ^^^^^^^^
-
-error: aborting due to 17 previous errors
+warning: 11 warnings emitted
 

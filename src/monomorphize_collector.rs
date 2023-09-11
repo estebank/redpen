@@ -132,7 +132,7 @@ pub fn collect_crate_mono_items(
 
         tcx.sess.time("monomorphization_collector_graph_walk", || {
             par_for_each_in(roots, |root| {
-                debug!("root {root:?}");
+                println!("root {root:?}");
                 let mut recursion_depths = DefIdMap::default();
                 let should_gen = match root.node {
                     MonoItem::Static(def_id) => {
@@ -787,7 +787,7 @@ fn visit_fn_use<'tcx>(
     output: &mut Vec<Spanned<MonoItem<'tcx>>>,
     trait_objects: &mut Vec<(Span, DefId, &'tcx ty::List<ty::GenericArg<'tcx>>)>,
 ) {
-    debug!("{source:?}");
+    debug!("visit_fn_use {source:?} {ty:?}");
     if let ty::FnDef(def_id, substs) = *ty.kind() {
         let instance = if is_direct_call {
             ty::Instance::expect_resolve(tcx, ty::ParamEnv::reveal_all(), def_id, substs)
@@ -819,8 +819,10 @@ fn visit_instance_use<'tcx>(
         ty::InstanceDef::Virtual(..) | ty::InstanceDef::Intrinsic(_) if !is_direct_call => {
             bug!("{:?} being reified", instance);
         }
-        ty::InstanceDef::Intrinsic(_) => {
+        ty::InstanceDef::Intrinsic(def_id) => {
             // ok, we ignore them for now, we might want to cover these for some lints
+            // output.push(create_fn_mono_item(tcx, instance, source));
+            // trait_objects.push((source, def_id, ty::List::empty()))
         }
         ty::InstanceDef::Virtual(def_id, _) => {
             // Collect trait object calls

@@ -9,11 +9,12 @@ use std::env::set_var;
 use std::io::{self, BufRead, BufReader, Write};
 use std::process::{Command, Stdio};
 
+const RUSTC_VERSION: &'static str = "nightly-2023-09-04";
+
 enum Stream {
     Out,
     Err,
 }
-
 fn main() {
     // We tell `cargo` to use our wrapper instead of `rustc` directly.
     set_var("RUSTC_WRAPPER", "redpen_wrapper");
@@ -32,14 +33,14 @@ fn main() {
     // Get the rustc library path
     if let Ok(mut path) = home::rustup_home() {
         path.push("toolchains");
-        path.push(&format!("nightly-2023-09-04-{target}"));
+        path.push(&format!("{RUSTC_VERSION}-{target}"));
         path.push("lib");
         std::env::set_var("LD_LIBRARY_PATH", path.to_str().unwrap());
     }
 
     let mut cmd = Command::new("cargo")
         .args([
-            "+nightly-2023-09-04",
+            &format!("+{RUSTC_VERSION}"),
             "build",
             "-Zbuild-std",
             "--target",

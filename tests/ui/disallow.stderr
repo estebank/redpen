@@ -1,3 +1,68 @@
+warning: calling `main` can unsafe
+   --> $DIR/disallow.rs:19:14
+    |
+19  |     let _ = &vec!(Pizza(&Pizza(Pineapple)));
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this can unsafe
+    |
+note: `alloc::alloc::exchange_malloc` can unsafe here
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/alloc.rs:241:9
+    |
+241 |         self.alloc_impl(layout, false)
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+328 | unsafe fn exchange_malloc(size: usize, align: usize) -> *mut u8 {
+    | ---------------------------------------------------------------
+note: `std::alloc::Global::alloc_impl` can unsafe here
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/alloc.rs:98:9
+    |
+98  |         __rust_alloc(layout.size(), layout.align())
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+170 |     unsafe { __rust_alloc_zeroed(layout.size(), layout.align()) }
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+176 |     fn alloc_impl(&self, layout: Layout, zeroed: bool) -> Result<NonNull<[u8]>, AllocError> {
+    |     ---------------------------------------------------------------------------------------
+    = note: `#[warn(redpen::call_unsafe)]` on by default
+
+warning: calling `main` can unsafe
+   --> $DIR/disallow.rs:20:14
+    |
+20  |     let _ = &vec!(Pizza(&Pizza(&Pineapple)));
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this can unsafe
+    |
+note: `alloc::alloc::exchange_malloc` can unsafe here
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/alloc.rs:241:9
+    |
+241 |         self.alloc_impl(layout, false)
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+328 | unsafe fn exchange_malloc(size: usize, align: usize) -> *mut u8 {
+    | ---------------------------------------------------------------
+note: `std::alloc::Global::alloc_impl` can unsafe here
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/alloc.rs:98:9
+    |
+98  |         __rust_alloc(layout.size(), layout.align())
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+170 |     unsafe { __rust_alloc_zeroed(layout.size(), layout.align()) }
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+176 |     fn alloc_impl(&self, layout: Layout, zeroed: bool) -> Result<NonNull<[u8]>, AllocError> {
+    |     ---------------------------------------------------------------------------------------
+
+warning: calling `main` can unsafe
+   --> $DIR/disallow.rs:21:1
+    |
+21  | }
+    | ^ this can unsafe
+    |
+note: `std::ptr::drop_in_place::<std::vec::Vec<Pizza<&Pizza<&Pineapple>>>>` can unsafe here
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/mod.rs:497:1
+    |
+497 | pub unsafe fn drop_in_place<T: ?Sized>(to_drop: *mut T) {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 error: type parameter `T` in `Pizza` can't be `Pineapple`
  --> $DIR/disallow.rs:8:20
   |
@@ -54,5 +119,5 @@ error: type parameter `T` in `Pizza` can't be `&Pineapple`
 20 |     let _ = &vec!(Pizza(&Pizza(&Pineapple)));
    |                          ^^^^^^^^^^^^^^^^^ this expression is of type `Pizza<&Pineapple>`
 
-error: aborting due to 9 previous errors
+error: aborting due to 9 previous errors; 3 warnings emitted
 

@@ -40,12 +40,16 @@ use rustc_interface::interface::Config;
 use rustc_session::config::ErrorOutputType;
 use rustc_session::EarlyErrorHandler;
 use std::sync::atomic::Ordering;
+use rustc_hir::{Item, ItemKind, Impl, def::{DefKind, Res}};
+
+use crate::attribute::RedpenAttribute;
 
 mod attribute;
 mod disallow;
 mod infallible_allocation;
 mod monomorphize_collector;
-mod panic_freedom;
+// mod panic_freedom;
+mod reachability_check;
 mod symbol;
 
 rustc_session::declare_tool_lint! {
@@ -90,13 +94,156 @@ impl Callbacks for MyCallbacks {
             lint_store.register_lints(&[
                 &INCORRECT_ATTRIBUTE,
                 &disallow::DISALLOW,
-                &panic_freedom::DONT_PANIC,
+                &reachability_check::DONT_PANIC,
+                &reachability_check::DONT_PANIC_IN_DROP,
+                &reachability_check::DONT_ALLOCATE,
+                &reachability_check::DONT_LEAK,
+                &reachability_check::FROM_RAW_PARTS,
+                &reachability_check::CALL_UNSAFE,
                 &infallible_allocation::INFALLIBLE_ALLOCATION,
             ]);
+
             lint_store.register_late_pass(|tcx| Box::new(disallow::Disallow::new(tcx)));
-            lint_store.register_late_pass(|tcx| Box::new(panic_freedom::DontPanic::new(tcx)));
-            lint_store
-                .register_late_pass(|_| Box::new(infallible_allocation::InfallibleAllocation));
+            let panic_paths = &[
+                "<usize as std::slice::SliceIndex<[T]>>::index",
+                "<usize as std::slice::SliceIndex<[T]>>::index_mut",
+                "core::panicking::panic_fmt",
+                "core::panicking::panic",
+                "std::rt::panic_fmt",
+
+                // "core::num::<impl u8>::checked_add",
+                // "core::num::<impl u16>::checked_add",
+                // "core::num::<impl u32>::checked_add",
+                // "core::num::<impl u64>::checked_add",
+                // "core::num::<impl u128>::checked_add",
+                // "core::num::<impl usize>::checked_add",
+                // "core::num::<impl i8>::checked_add",
+                // "core::num::<impl i16>::checked_add",
+                // "core::num::<impl i32>::checked_add",
+                // "core::num::<impl i64>::checked_add",
+                // "core::num::<impl i128>::checked_add",
+                // "core::num::<impl isize>::checked_add",
+
+                // "core::num::<impl u8>::checked_sub",
+                // "core::num::<impl u16>::checked_sub",
+                // "core::num::<impl u32>::checked_sub",
+                // "core::num::<impl u64>::checked_sub",
+                // "core::num::<impl u128>::checked_sub",
+                // "core::num::<impl usize>::checked_sub",
+                // "core::num::<impl i8>::checked_sub",
+                // "core::num::<impl i16>::checked_sub",
+                // "core::num::<impl i32>::checked_sub",
+                // "core::num::<impl i64>::checked_sub",
+                // "core::num::<impl i128>::checked_sub",
+                // "core::num::<impl isize>::checked_sub",
+            ];
+            lint_store.register_late_pass(|tcx| {
+                Box::new(reachability_check::UnsafetyCheck::new(
+                    tcx,
+                    RedpenAttribute::WontPanic,
+                    &[],
+                    "unsafe",
+                    reachability_check::CALL_UNSAFE,
+                    true,
+                    Box::new(|_, _| true),
+                ))
+            });
+            // lint_store.register_late_pass(|tcx| {
+            //     Box::new(reachability_check::ReachabilityCheck::new(
+            //         tcx,
+            //         RedpenAttribute::WontPanic,
+            //         panic_paths,
+            //         "panic",
+            //         reachability_check::DONT_PANIC,
+            //         true,
+            //         Box::new(|_, _| true),
+            //     ))
+            // });
+            // lint_store.register_late_pass(|tcx| {
+            //     Box::new(reachability_check::ReachabilityCheck::new(
+            //         tcx,
+            //         RedpenAttribute::WontPanic,
+            //         panic_paths,
+            //         "panic in a `Drop` implementation",
+            //         reachability_check::DONT_PANIC_IN_DROP,
+            //         true,
+            //         Box::new(|tcx, def_id| {
+            //             if tcx.def_kind(def_id) != DefKind::AssocFn {
+            //                 return false;
+            //             }
+            //             let def_id = tcx.parent(def_id);
+            //             let item = tcx.hir().expect_item(def_id.expect_local());
+            //             let ItemKind::Impl(Impl { of_trait: Some(item), .. }) = item.kind else {
+            //                 return false;
+            //             };
+            //             let Res::Def(_, trait_def_id) = item.path.res else {
+            //                 return false;
+            //             };
+            //             Some(trait_def_id) == tcx.lang_items().drop_trait()
+            //         }),
+            //     ))
+            // });
+            // lint_store.register_late_pass(|tcx| {
+            //     Box::new(reachability_check::ReachabilityCheck::new(
+            //         tcx,
+            //         RedpenAttribute::WontAllocate,
+            //         &[
+            //             "alloc::alloc::__rust_alloc",
+            //             "alloc::alloc::__rust_alloc_zeroed",
+            //             "alloc::alloc::__rust_realloc",
+            //             "alloc::alloc::__rust_dealloc",
+            //             // Fallible allocation function
+            //             "alloc::string::String::try_reserve",
+            //             "alloc::string::String::try_reserve_exact",
+            //         ],
+            //         "allocate",
+            //         reachability_check::DONT_ALLOCATE,
+            //         true,
+            //         Box::new(|_, _| true),
+            //     ))
+            // });
+            // lint_store.register_late_pass(|tcx| {
+            //     Box::new(reachability_check::ReachabilityCheck::new(
+            //         tcx,
+            //         RedpenAttribute::WontLeak,
+            //         &[
+            //             "std::mem::forget",
+            //             "std::boxed::Box::<T, A>::leak",
+            //             "std::slice::from_raw_parts",
+            //         ],
+            //         "leak memory",
+            //         reachability_check::DONT_LEAK,
+            //         false,
+            //         Box::new(|_, _| true),
+            //     ))
+            // });
+            // lint_store.register_late_pass(|tcx| {
+            //     Box::new(reachability_check::ReachabilityCheck::new(
+            //         tcx,
+            //         RedpenAttribute::WontLeak,
+            //         &[
+            //             "std::process::exit",
+            //         ],
+            //         "terminate the process",
+            //         reachability_check::DONT_LEAK,
+            //         true,
+            //         Box::new(|_, _| true),
+            //     ))
+            // });
+            // lint_store.register_late_pass(|tcx| {
+            //     Box::new(reachability_check::ReachabilityCheck::new(
+            //         tcx,
+            //         RedpenAttribute::WontLeak,
+            //         &[
+            //         ],
+            //         "call `std::slice::from_raw_parts`",
+            //         reachability_check::FROM_RAW_PARTS,
+            //         false,
+            //         Box::new(|_, _| true),
+            //     ))
+            // });
+
+
         }));
     }
 }

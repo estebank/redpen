@@ -8,11 +8,14 @@ use rustc_middle::ty::TyCtxt;
 use rustc_span::symbol::Ident;
 use rustc_span::Span;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum RedpenAttribute {
     Disallow(HashMap<String, HashSet<String>>),
     DontPanic,
     WontPanic,
+    WontAllocate,
+    WontLeak,
+    AssumeSafe,
 }
 
 struct Cursor<'a> {

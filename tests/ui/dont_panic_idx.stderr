@@ -1,20 +1,34 @@
-error: indexing operations can panic if the indexed value is out of bounds
- --> $DIR/dont_panic_idx.rs:7:13
-  |
-7 |     let _ = x[1];
-  |             ^^^^
-  |
-note: the lint level is defined here
- --> $DIR/dont_panic_idx.rs:2:9
-  |
-2 | #![deny(redpen::dont_panic)]
-  |         ^^^^^^^^^^^^^^^^^^
+warning: calling `main` can unsafe
+    --> $DIR/dont_panic_idx.rs:33:1
+     |
+33   | }
+     | ^ this can unsafe
+     |
+note: `std::ptr::drop_in_place::<std::io::StderrLock<'_>>` can unsafe here
+    --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/mod.rs:497:1
+     |
+497  | pub unsafe fn drop_in_place<T: ?Sized>(to_drop: *mut T) {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: `std::ptr::drop_in_place::<std::sync::remutex::ReentrantMutexGuard<'_, std::cell::RefCell<std::io::stdio::StderrRaw>>>` can unsafe here
+    --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/mod.rs:497:1
+     |
+497  | pub unsafe fn drop_in_place<T: ?Sized>(to_drop: *mut T) {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: `<std::sync::remutex::ReentrantMutexGuard<'_, std::cell::RefCell<std::io::stdio::StderrRaw>> as std::ops::Drop>::drop` can unsafe here
+    --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/sync/atomic.rs:3145:1
+     |
+3145 | / atomic_int_ptr_sized! {
+3146 | |     "16" 2
+3147 | |     "32" 4
+3148 | |     "64" 8
+3149 | | }
+     | |_^
+     |
+    ::: /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sync/remutex.rs:159:5
+     |
+159  |       fn drop(&mut self) {
+     |       ------------------
+     = note: `#[warn(redpen::call_unsafe)]` on by default
 
-error: indexing operations can panic if the indexed value is out of bounds
- --> $DIR/dont_panic_idx.rs:8:5
-  |
-8 |     x[1] = "";
-  |     ^^^^
-
-error: aborting due to 2 previous errors
+warning: 1 warning emitted
 
