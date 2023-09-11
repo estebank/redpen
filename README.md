@@ -131,7 +131,7 @@ This linter is implemented as a `rustc_driver`, effectively a different entry po
 
 `redpen_wrapper` is a very small CLI tool that is meant to act as a passthrough between `cargo` and `rustc`. It is invoked through `RUST_WRAPPER=redpen_wrapper cargo build`. This allows us to use `rustc` to build a given crate, and only once this is done, execute `redpen` to execute the lints and collect metadata necessary for cross-crate analysis (like the `panic!()` reachability lint).
 
-`cargo-redpen` is a small CLI that invokes `cargo build` with the appropriate environement variables. It executes:
+`cargo-redpen` is a small CLI that invokes `cargo build` with the appropriate environment variables. It executes:
 
 ```console
 export LD_LIBRARY_PATH=$(rustup run nightly-2023-09-04 bash -c "echo \$LD_LIBRARY_PATH")
