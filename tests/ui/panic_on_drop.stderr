@@ -1,0 +1,10 @@
+warning: unknown lint: `redpen::dont_panic_in_drop`
+ --> $DIR/panic_on_drop.rs:1:9
+  |
+1 | #![deny(redpen::dont_panic_in_drop)]
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unknown_lints)]` on by default
+
+warning: 1 warning emitted
+

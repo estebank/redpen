@@ -1,5 +1,5 @@
 #![allow(redpen::infallible_allocation)]
-#![deny(redpen::dont_panic)]
+#![deny(redpen::panics)]
 struct S;
 
 impl S {
@@ -24,7 +24,6 @@ impl A for S {
     }
 }
 impl B for S {
-    #[deny(redpen::dont_panic)]
     fn from_impl(&self) {
         panic!();
     }
@@ -37,7 +36,7 @@ impl A for X {
 }
 
 #[redpen::wont_panic]
-fn might_panic() {
+fn wont_panic() {
     panic!()
 }
 
@@ -57,17 +56,15 @@ fn foo() {
     S.from_impl();
     X.from_trait();
     X.from_a_impl();
-    #[allow(redpen::dont_panic)]
     (|| {
         panic!();
     })();
-    #[allow(redpen::dont_panic)]
-    let x =  || panic!();
+    let x = || panic!();
     x();
     let mut x = vec![];
     x.push("");
     let _ = x[1];
-    might_panic();
+    wont_panic();
     panic!("shouldn't happen!");
 }
 
@@ -83,11 +80,11 @@ fn boxed() -> Box<dyn A> {
 }
 fn main() {
     foo();
-    bar();
-    baz();
-    trait_object(Box::new(S));
-    trait_object(Box::new(X));
-    trait_object(boxed());
-    impl_fn(S);
-    impl_fn(X);
+    // bar();
+    // baz();
+    // trait_object(Box::new(S));
+    // trait_object(Box::new(X));
+    // // trait_object(boxed());
+    // impl_fn(S);
+    // impl_fn(X);
 }

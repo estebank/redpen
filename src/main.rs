@@ -24,6 +24,7 @@ extern crate rustc_mir_dataflow;
 extern crate rustc_monomorphize;
 extern crate rustc_serialize;
 extern crate rustc_session;
+extern crate rustc_smir;
 extern crate rustc_span;
 extern crate rustc_symbol_mangling;
 extern crate rustc_target;
@@ -46,6 +47,7 @@ mod disallow;
 mod infallible_allocation;
 mod monomorphize_collector;
 mod panic_freedom;
+mod reachability_check;
 mod symbol;
 
 rustc_session::declare_tool_lint! {
@@ -58,7 +60,7 @@ struct MyCallbacks;
 
 impl Callbacks for MyCallbacks {
     fn config(&mut self, config: &mut Config) {
-        config.override_queries = Some(|_, provider, _| {
+        config.override_queries = Some(|_, provider| {
             static ORIGINAL_OPTIMIZED_MIR: AtomicPtr<()> = AtomicPtr::new(std::ptr::null_mut());
 
             ORIGINAL_OPTIMIZED_MIR.store(provider.optimized_mir as *mut (), Ordering::Relaxed);
@@ -88,13 +90,13 @@ impl Callbacks for MyCallbacks {
             }
 
             lint_store.register_lints(&[
-                &INCORRECT_ATTRIBUTE,
+                // &INCORRECT_ATTRIBUTE,
                 &disallow::DISALLOW,
-                &panic_freedom::DONT_PANIC,
+                &panic_freedom::PANICS,
                 &infallible_allocation::INFALLIBLE_ALLOCATION,
             ]);
             lint_store.register_late_pass(|tcx| Box::new(disallow::Disallow::new(tcx)));
-            lint_store.register_late_pass(|tcx| Box::new(panic_freedom::DontPanic::new(tcx)));
+            lint_store.register_late_pass(|tcx| Box::new(panic_freedom::PanicFreedom::new(tcx)));
             lint_store
                 .register_late_pass(|_| Box::new(infallible_allocation::InfallibleAllocation));
         }));

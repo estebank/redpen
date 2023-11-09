@@ -1,0 +1,53 @@
+error: `<str as std::string::ToString>::to_string` can have an allocation failure
+   --> $DIR/cmp_alloc.rs:4:18
+    |
+4   |     let s = Some("hi".to_string());
+    |                  ^^^^^^^^^^^^^^^^
+    |
+note: `<str as std::string::ToString>::to_string` is determined to allocate fallibly because it calls into `<u8 as std::slice::hack::ConvertVec>::to_vec::<std::alloc::Global>`
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-11-01-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/slice.rs:111:9
+    |
+111 |         T::to_vec(s, alloc)
+    |         ^^^^^^^^^^^^^^^^^^^
+note: which calls into `alloc::raw_vec::RawVec::<u8>::allocate_in`
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-11-01-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/raw_vec.rs:130:9
+    |
+130 |         Self::allocate_in(capacity, AllocInit::Uninitialized, alloc)
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: which calls into `alloc::raw_vec::capacity_overflow`
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-11-01-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/raw_vec.rs:177:27
+    |
+177 |                 Err(_) => capacity_overflow(),
+    |                           ^^^^^^^^^^^^^^^^^^^
+    = note: which may call `alloc_error_handler`
+note: the lint level is defined here
+   --> $DIR/cmp_alloc.rs:1:9
+    |
+1   | #![deny(redpen::infallible_allocation)]
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `<str as std::string::ToString>::to_string` can have an allocation failure
+   --> $DIR/cmp_alloc.rs:5:23
+    |
+5   |     assert!(s == Some("hi".to_string()));
+    |                       ^^^^^^^^^^^^^^^^
+    |
+note: `<str as std::string::ToString>::to_string` is determined to allocate fallibly because it calls into `<u8 as std::slice::hack::ConvertVec>::to_vec::<std::alloc::Global>`
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-11-01-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/slice.rs:111:9
+    |
+111 |         T::to_vec(s, alloc)
+    |         ^^^^^^^^^^^^^^^^^^^
+note: which calls into `alloc::raw_vec::RawVec::<u8>::allocate_in`
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-11-01-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/raw_vec.rs:130:9
+    |
+130 |         Self::allocate_in(capacity, AllocInit::Uninitialized, alloc)
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: which calls into `alloc::raw_vec::capacity_overflow`
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-11-01-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/raw_vec.rs:177:27
+    |
+177 |                 Err(_) => capacity_overflow(),
+    |                           ^^^^^^^^^^^^^^^^^^^
+    = note: which may call `alloc_error_handler`
+
+error: aborting due to 2 previous errors
+

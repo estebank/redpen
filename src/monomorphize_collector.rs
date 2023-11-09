@@ -10,20 +10,19 @@ use rustc_hir as hir;
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, DefIdMap, LocalDefId};
 use rustc_hir::lang_items::LangItem;
-use rustc_middle::mir::interpret::{AllocId, ConstValue};
-use rustc_middle::mir::interpret::{ErrorHandled, GlobalAlloc, Scalar};
+use rustc_middle::middle::codegen_fn_attrs::CodegenFnAttrFlags;
+use rustc_middle::mir::interpret::{AllocId, ErrorHandled, GlobalAlloc, Scalar};
 use rustc_middle::mir::mono::MonoItem;
-use rustc_middle::mir::visit::Visitor as MirVisitor;
-use rustc_middle::mir::{self, Local, Location};
+use rustc_middle::mir::visit::{TyContext, Visitor as MirVisitor};
+use rustc_middle::mir::{self, ConstValue, Local, Location};
 use rustc_middle::query::TyCtxtAt;
 use rustc_middle::ty::adjustment::{CustomCoerceUnsized, PointerCoercion};
 use rustc_middle::ty::print::with_no_trimmed_paths;
 use rustc_middle::ty::{
-    self, GenericParamDefKind, Instance, Ty, TyCtxt, TypeFoldable, TypeVisitableExt, VtblEntry,
+    self, GenericArgKind, GenericArgs, GenericParamDefKind, Instance, Ty, TyCtxt, TypeFoldable,
+    TypeVisitableExt, VtblEntry,
 };
-use rustc_middle::ty::{GenericArgKind, GenericArgs};
 use rustc_middle::{bug, span_bug};
-use rustc_middle::{middle::codegen_fn_attrs::CodegenFnAttrFlags, mir::visit::TyContext};
 use rustc_session::config::EntryFnType;
 use rustc_session::Limit;
 use rustc_span::source_map::{dummy_spanned, respan, Span, Spanned, DUMMY_SP};
@@ -360,7 +359,7 @@ fn collect_items_rec<'tcx>(
     // Check for PMEs and emit a diagnostic if one happened. To try to show relevant edges of the
     // mono item graph.
     if tcx.sess.diagnostic().err_count() > error_count
-        && starting_item.node.is_generic_fn()
+        && starting_item.node.is_generic_fn(tcx)
         && starting_item.node.is_user_defined()
     {
         let formatted_item = with_no_trimmed_paths!(starting_item.node.to_string());
@@ -538,7 +537,7 @@ impl<'a, 'tcx> MirUsedCollector<'a, 'tcx> {
         T: TypeFoldable<TyCtxt<'tcx>>,
     {
         debug!("monomorphize: self.instance={:?}", self.instance);
-        self.instance.subst_mir_and_normalize_erasing_regions(
+        self.instance.instantiate_mir_and_normalize_erasing_regions(
             self.tcx,
             ty::ParamEnv::reveal_all(),
             ty::EarlyBinder::bind(value),
@@ -639,35 +638,41 @@ impl<'a, 'tcx> MirVisitor<'tcx> for MirUsedCollector<'a, 'tcx> {
     /// This does not walk the constant, as it has been handled entirely here and trying
     /// to walk it would attempt to evaluate the `ty::Const` inside, which doesn't necessarily
     /// work, as some constants cannot be represented in the type system.
-    fn visit_constant(&mut self, constant: &mir::Constant<'tcx>, location: Location) {
-        let literal = self.monomorphize(constant.literal);
+    fn visit_constant(&mut self, constant: &mir::ConstOperand<'tcx>, location: Location) {
+        let literal = self.monomorphize(constant.const_);
         let val = match literal {
-            mir::ConstantKind::Val(val, _) => val,
-            mir::ConstantKind::Ty(ct) => match ct.kind() {
+            mir::Const::Val(val, _) => val,
+            mir::Const::Ty(ct) => match ct.kind() {
                 ty::ConstKind::Value(val) => self.tcx.valtree_to_const_val((ct.ty(), val)),
-                ty::ConstKind::Unevaluated(ct) => {
-                    debug!(?ct);
+                ty::ConstKind::Unevaluated(uneval) => {
                     let param_env = ty::ParamEnv::reveal_all();
-                    match self.tcx.const_eval_resolve(param_env, ct.expand(), None) {
+                    match self
+                        .tcx
+                        .const_eval_resolve_for_typeck(param_env, uneval, None)
+                    {
                         // The `monomorphize` call should have evaluated that constant already.
-                        Ok(val) => val,
-                        Err(ErrorHandled::Reported(_)) => return,
-                        Err(ErrorHandled::TooGeneric) => span_bug!(
+                        Ok(Some(val)) => self.tcx.valtree_to_const_val((ct.ty(), val)),
+                        Err(ErrorHandled::Reported(..)) => return,
+                        Err(ErrorHandled::TooGeneric(_)) => span_bug!(
                             self.body.source_info(location).span,
                             "collection encountered polymorphic constant: {:?}",
                             literal
+                        ),
+                        Ok(None) => span_bug!(
+                            self.body.source_info(location).span,
+                            "const eval resolve fail"
                         ),
                     }
                 }
                 _ => return,
             },
-            mir::ConstantKind::Unevaluated(uv, _) => {
+            mir::Const::Unevaluated(uv, _) => {
                 let param_env = ty::ParamEnv::reveal_all();
                 match self.tcx.const_eval_resolve(param_env, uv, None) {
                     // The `monomorphize` call should have evaluated that constant already.
                     Ok(val) => val,
-                    Err(ErrorHandled::Reported(_)) => return,
-                    Err(ErrorHandled::TooGeneric) => span_bug!(
+                    Err(ErrorHandled::Reported(..)) => return,
+                    Err(ErrorHandled::TooGeneric(_)) => span_bug!(
                         self.body.source_info(location).span,
                         "collection encountered polymorphic constant: {:?}",
                         literal
@@ -707,7 +712,7 @@ impl<'a, 'tcx> MirVisitor<'tcx> for MirUsedCollector<'a, 'tcx> {
                 for op in operands {
                     match *op {
                         mir::InlineAsmOperand::SymFn { ref value } => {
-                            let fn_ty = self.monomorphize(value.literal.ty());
+                            let fn_ty = self.monomorphize(value.const_.ty());
                             visit_fn_use(
                                 self.tcx,
                                 fn_ty,
@@ -745,7 +750,7 @@ impl<'a, 'tcx> MirVisitor<'tcx> for MirUsedCollector<'a, 'tcx> {
             | mir::TerminatorKind::UnwindResume
             | mir::TerminatorKind::Return
             | mir::TerminatorKind::Unreachable => {}
-            mir::TerminatorKind::GeneratorDrop
+            mir::TerminatorKind::CoroutineDrop
             | mir::TerminatorKind::Yield { .. }
             | mir::TerminatorKind::FalseEdge { .. }
             | mir::TerminatorKind::FalseUnwind { .. } => bug!(),
@@ -1306,10 +1311,8 @@ fn collect_const_value<'tcx>(
         ConstValue::Scalar(Scalar::Ptr(ptr, _size)) => collect_miri(tcx, ptr.provenance, output),
         ConstValue::Slice {
             data: alloc,
-            start: _,
-            end: _,
-        }
-        | ConstValue::ByRef { alloc, .. } => {
+            meta: _,
+        } => {
             for id in alloc.inner().provenance().provenances() {
                 collect_miri(tcx, id, output);
             }

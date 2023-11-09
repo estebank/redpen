@@ -153,7 +153,11 @@ impl<'tcx> LateLintPass<'tcx> for InfallibleAllocation {
                 let accessee = item.node;
 
                 if !accessee.def_id().is_local() && infallible.contains(&accessee) {
-                    let is_generic = accessor.args.non_erasable_generics().next().is_some();
+                    let is_generic = accessor
+                        .args
+                        .non_erasable_generics(cx.tcx, accessee.def_id())
+                        .next()
+                        .is_some();
                     let generic_note = if is_generic {
                         format!(
                             " when the caller is monomorphized as `{}`",
@@ -181,7 +185,12 @@ impl<'tcx> LateLintPass<'tcx> for InfallibleAllocation {
                             let mut visited = FxHashSet::default();
                             visited.insert(*accessor);
                             visited.insert(accessee);
-                            while caller.args.non_erasable_generics().next().is_some() {
+                            while caller
+                                .args
+                                .non_erasable_generics(cx.tcx, accessee.def_id())
+                                .next()
+                                .is_some()
+                            {
                                 let spanned_caller = match backward
                                     .get(&caller)
                                     .map(|x| &**x)

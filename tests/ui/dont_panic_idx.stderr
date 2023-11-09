@@ -7,8 +7,8 @@ error: indexing operations can panic if the indexed value is out of bounds
 note: the lint level is defined here
  --> $DIR/dont_panic_idx.rs:2:9
   |
-2 | #![deny(redpen::dont_panic)]
-  |         ^^^^^^^^^^^^^^^^^^
+2 | #![deny(redpen::panics)]
+  |         ^^^^^^^^^^^^^^
 
 error: indexing operations can panic if the indexed value is out of bounds
  --> $DIR/dont_panic_idx.rs:8:5

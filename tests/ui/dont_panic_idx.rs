@@ -1,5 +1,5 @@
 #![allow(redpen::infallible_allocation)]
-#![deny(redpen::dont_panic)]
+#![deny(redpen::panics)]
 
 fn main() {
     let mut x: Vec<&str> = vec![];
