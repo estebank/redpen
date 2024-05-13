@@ -5,17 +5,17 @@ warning: calling `main` can unsafe
      | ^ this can unsafe
      |
 note: `std::ptr::drop_in_place::<std::io::StderrLock<'_>>` can unsafe here
-    --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/mod.rs:497:1
+    --> /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/mod.rs:497:1
      |
 497  | pub unsafe fn drop_in_place<T: ?Sized>(to_drop: *mut T) {
      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: `std::ptr::drop_in_place::<std::sync::remutex::ReentrantMutexGuard<'_, std::cell::RefCell<std::io::stdio::StderrRaw>>>` can unsafe here
-    --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/mod.rs:497:1
+    --> /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/mod.rs:497:1
      |
 497  | pub unsafe fn drop_in_place<T: ?Sized>(to_drop: *mut T) {
      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: `<std::sync::remutex::ReentrantMutexGuard<'_, std::cell::RefCell<std::io::stdio::StderrRaw>> as std::ops::Drop>::drop` can unsafe here
-    --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/sync/atomic.rs:3145:1
+    --> /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/sync/atomic.rs:3145:1
      |
 3145 | / atomic_int_ptr_sized! {
 3146 | |     "16" 2
@@ -24,7 +24,7 @@ note: `<std::sync::remutex::ReentrantMutexGuard<'_, std::cell::RefCell<std::io::
 3149 | | }
      | |_^
      |
-    ::: /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sync/remutex.rs:159:5
+    ::: /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sync/remutex.rs:159:5
      |
 159  |       fn drop(&mut self) {
      |       ------------------

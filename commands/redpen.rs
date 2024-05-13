@@ -9,7 +9,7 @@ use std::env::set_var;
 use std::io::{self, BufRead, BufReader, Write};
 use std::process::{Command, Stdio};
 
-const RUSTC_VERSION: &'static str = "nightly-2023-09-04";
+const RUSTC_VERSION: &'static str = "nightly-2024-05-06";
 
 enum Stream {
     Out,

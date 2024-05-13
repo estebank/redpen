@@ -1,0 +1,28 @@
+warning: `bal::{closure#0}` can block
+  --> $DIR/blocking-calls-in-async.rs:24:16
+   |
+24 |   async fn bal() {
+   |  ________________^
+25 | |     can_block_ignored();
+26 | | }
+   | |_^
+   |
+   = note: `#[warn(redpen::blocking_async)]` on by default
+
+warning: `bar::{closure#0}` can block
+  --> $DIR/blocking-calls-in-async.rs:18:16
+   |
+18 |   async fn bar() {
+   |  ________________^
+19 | |     interesting();
+20 | | }
+   | |_^
+   |
+note: `bar::{closure#0}` is determined to block because it calls into `interesting`
+  --> $DIR/blocking-calls-in-async.rs:19:5
+   |
+19 |     interesting();
+   |     ^^^^^^^^^^^^^
+
+warning: 2 warnings emitted
+

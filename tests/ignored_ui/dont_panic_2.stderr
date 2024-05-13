@@ -5,7 +5,7 @@ warning: calling `foo8` can unsafe
      |     ^^^^^^^^^^ this can unsafe
      |
 note: `std::vec::Vec::<&str>::push` can unsafe here
-    --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs:1880:13
+    --> /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs:1880:13
      |
 1876 |     pub fn push(&mut self, value: T) {
      |     --------------------------------
@@ -13,14 +13,14 @@ note: `std::vec::Vec::<&str>::push` can unsafe here
 1880 |             self.buf.reserve_for_push(self.len);
      |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: `alloc::raw_vec::RawVec::<&str>::reserve_for_push` can unsafe here
-    --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/raw_vec.rs:302:24
+    --> /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/raw_vec.rs:302:24
      |
 301  |     pub fn reserve_for_push(&mut self, len: usize) {
      |     ----------------------------------------------
 302  |         handle_reserve(self.grow_amortized(len, 1));
      |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: `alloc::raw_vec::RawVec::<&str>::grow_amortized` can unsafe here
-    --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/raw_vec.rs:404:19
+    --> /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/raw_vec.rs:404:19
      |
 383  |     fn grow_amortized(&mut self, len: usize, additional: usize) -> Result<(), TryReserveError> {
      |     ------------------------------------------------------------------------------------------
@@ -28,7 +28,7 @@ note: `alloc::raw_vec::RawVec::<&str>::grow_amortized` can unsafe here
 404  |         let ptr = finish_grow(new_layout, self.current_memory(), &mut self.alloc)?;
      |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: `alloc::raw_vec::finish_grow::<std::alloc::Global>` can unsafe here
-    --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/raw_vec.rs:482:13
+    --> /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/raw_vec.rs:482:13
      |
 464  | / fn finish_grow<A>(
 465  | |     new_layout: Result<Layout, LayoutError>,
@@ -53,7 +53,7 @@ warning: calling `foo8` can unsafe
     | ^ this can unsafe
     |
 note: `std::ptr::drop_in_place::<std::vec::Vec<&str>>` can unsafe here
-   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/mod.rs:497:1
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/mod.rs:497:1
     |
 497 | pub unsafe fn drop_in_place<T: ?Sized>(to_drop: *mut T) {
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

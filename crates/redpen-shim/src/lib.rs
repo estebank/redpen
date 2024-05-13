@@ -5,14 +5,21 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 
 #[proc_macro_attribute]
-pub fn wont_panic(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn deny(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
+
 #[proc_macro_attribute]
-pub fn dont_panic(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn allow(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
+
 #[proc_macro_attribute]
-pub fn disallow(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn assume_ok(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}
+
+#[proc_macro_attribute]
+pub fn assume_bad(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }

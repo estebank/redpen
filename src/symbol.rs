@@ -10,10 +10,9 @@ macro_rules! def {
 }
 
 def! {
-    disallow,
-    dont_panic,
-    index,
-    index_mut,
+    allow,
+    deny,
+    assume_ok,
+    assume_bad,
     redpen,
-    wont_panic,
 }

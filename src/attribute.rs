@@ -1,8 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use rustc_ast::tokenstream::{self, TokenTree};
 use rustc_ast::{ast, token};
-use rustc_errors::{DiagnosticBuilder, ErrorGuaranteed};
+use rustc_errors::{Diag, ErrorGuaranteed};
 use rustc_hir::HirId;
 use rustc_middle::ty::TyCtxt;
 use rustc_span::symbol::Ident;
@@ -10,12 +10,10 @@ use rustc_span::Span;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum RedpenAttribute {
-    Disallow(HashMap<String, HashSet<String>>),
-    DontPanic,
-    WontPanic,
-    WontAllocate,
-    WontLeak,
-    AssumeSafe,
+    Deny(HashSet<String>),
+    Allow(HashSet<String>),
+    AssumeOk(HashSet<String>),
+    AssumeBad(HashSet<String>),
 }
 
 struct Cursor<'a> {
@@ -57,11 +55,9 @@ impl<'tcx> AttrParser<'tcx> {
     fn error(
         &self,
         span: Span,
-        decorate: impl for<'a, 'b> FnOnce(
-            &'b mut DiagnosticBuilder<'a, ()>,
-        ) -> &'b mut DiagnosticBuilder<'a, ()>,
+        decorate: impl for<'a, 'b> FnOnce(&'b mut Diag<'a, ()>),
     ) -> Result<!, ErrorGuaranteed> {
-        self.tcx.struct_span_lint_hir(
+        self.tcx.node_span_lint(
             crate::INCORRECT_ATTRIBUTE,
             self.hir_id,
             span,
@@ -70,8 +66,8 @@ impl<'tcx> AttrParser<'tcx> {
         );
         Err(self
             .tcx
-            .sess
-            .delay_span_bug(span, "incorrect usage of `#[kint::preempt_count]`"))
+            .dcx()
+            .span_delayed_bug(span, "incorrect usage of `#[kint::preempt_count]`"))
     }
 
     fn parse_comma_delimited(
@@ -103,7 +99,7 @@ impl<'tcx> AttrParser<'tcx> {
                 )
             ) {
                 self.error(comma.span(), |diag| {
-                    diag.help("`,` expected between property values")
+                    diag.help("`,` expected between property values");
                 })?;
             }
         }
@@ -117,7 +113,9 @@ impl<'tcx> AttrParser<'tcx> {
     ) -> Result<Cursor<'a>, ErrorGuaranteed> {
         let prop = cursor.next();
         let invalid_prop = |span| {
-            self.error(span, |diag| diag.help("identifier expected"))?;
+            self.error(span, |diag| {
+                diag.help("identifier expected");
+            })?;
         };
 
         let TokenTree::Token(token, _) = prop else {
@@ -143,12 +141,12 @@ impl<'tcx> AttrParser<'tcx> {
         );
         if need_eq && !is_eq {
             self.error(eq.span(), |diag| {
-                diag.help("`=` expected after property name")
+                diag.help("`=` expected after property name");
             })?;
         }
         if !need_eq && is_eq {
             self.error(eq.span(), |diag| {
-                diag.help("unexpected `=` after property name")
+                diag.help("unexpected `=` after property name");
             })?;
         }
 
@@ -163,7 +161,11 @@ impl<'tcx> AttrParser<'tcx> {
 
     #[allow(unused)]
     fn parse_i32<'a>(&self, mut cursor: Cursor<'a>) -> Result<(i32, Cursor<'a>), ErrorGuaranteed> {
-        let expect_int = |span| self.error(span, |diag| diag.help("an integer expected"));
+        let expect_int = |span| {
+            self.error(span, |diag| {
+                diag.help("an integer expected");
+            })
+        };
 
         let negative = if matches!(
             cursor.look_ahead(0),
@@ -207,7 +209,11 @@ impl<'tcx> AttrParser<'tcx> {
         &self,
         mut cursor: Cursor<'a>,
     ) -> Result<(String, Cursor<'a>), ErrorGuaranteed> {
-        let expect_str = |span| self.error(span, |diag| diag.help("expected a string literal"));
+        let expect_str = |span| {
+            self.error(span, |diag| {
+                diag.help("expected a string literal");
+            })
+        };
         let token = cursor.next();
         let TokenTree::Token(
             token::Token {
@@ -225,11 +231,11 @@ impl<'tcx> AttrParser<'tcx> {
         Ok((lit.symbol.to_string(), cursor))
     }
 
-    fn parse_disallow(
+    fn parse_list(
         &self,
         attr: &ast::Attribute,
         item: &ast::AttrItem,
-    ) -> Result<HashMap<String, HashSet<String>>, ErrorGuaranteed> {
+    ) -> Result<HashSet<String>, ErrorGuaranteed> {
         let ast::AttrArgs::Delimited(ast::DelimArgs {
             dspan: delim_span,
             tokens: tts,
@@ -237,23 +243,17 @@ impl<'tcx> AttrParser<'tcx> {
         }) = &item.args
         else {
             self.error(attr.span, |diag| {
-                diag.help("correct usage looks like `#[redpen::disallow(...)]`")
+                diag.help("correct usage looks like `#[redpen::allow(...)]`");
             })?;
         };
-        let mut map = HashMap::<String, HashSet<String>>::default();
-        self.parse_comma_delimited(Cursor::new(tts.trees(), delim_span.close), |cursor| {
-            self.parse_eq_delimited(
-                cursor,
-                |_| Ok(true),
-                |name, mut cursor| {
-                    let lit;
-                    (lit, cursor) = self.parse_str_literal(cursor)?;
-                    map.entry(name.to_string()).or_default().insert(lit);
-                    Ok(cursor)
-                },
-            )
+        let mut set = HashSet::<String>::default();
+        self.parse_comma_delimited(Cursor::new(tts.trees(), delim_span.close), |mut cursor| {
+            let lit;
+            (lit, cursor) = self.parse_str_literal(cursor)?;
+            set.insert(lit.to_string());
+            Ok(cursor)
         })?;
-        Ok(map)
+        Ok(set)
     }
 
     fn parse(&self, attr: &ast::Attribute) -> Option<RedpenAttribute> {
@@ -265,28 +265,35 @@ impl<'tcx> AttrParser<'tcx> {
             return None;
         };
         if item.path.segments.len() != 2 {
-            self.tcx.struct_span_lint_hir(
+            self.tcx.node_span_lint(
                 crate::INCORRECT_ATTRIBUTE,
                 self.hir_id,
                 attr.span,
                 "invalid redpen attribute",
-                |diag| diag,
+                |_| (),
             );
             return None;
         }
         match item.path.segments[1].ident.name {
-            v if v == *crate::symbol::dont_panic => Some(RedpenAttribute::DontPanic),
-            v if v == *crate::symbol::wont_panic => Some(RedpenAttribute::WontPanic),
-            v if v == *crate::symbol::disallow => Some(RedpenAttribute::Disallow(
-                self.parse_disallow(attr, item).ok()?,
+            v if v == *crate::symbol::allow => {
+                Some(RedpenAttribute::Allow(self.parse_list(attr, item).ok()?))
+            }
+            v if v == *crate::symbol::deny => {
+                Some(RedpenAttribute::Deny(self.parse_list(attr, item).ok()?))
+            }
+            v if v == *crate::symbol::assume_ok => {
+                Some(RedpenAttribute::AssumeOk(self.parse_list(attr, item).ok()?))
+            }
+            v if v == *crate::symbol::assume_bad => Some(RedpenAttribute::AssumeBad(
+                self.parse_list(attr, item).ok()?,
             )),
             _ => {
-                self.tcx.struct_span_lint_hir(
+                self.tcx.node_span_lint(
                     crate::INCORRECT_ATTRIBUTE,
                     self.hir_id,
                     item.path.segments[1].span(),
                     "unrecognized redpen attribute",
-                    |diag| diag,
+                    |_| (),
                 );
                 None
             }
@@ -301,3 +308,18 @@ pub fn parse_redpen_attribute(
 ) -> Option<RedpenAttribute> {
     AttrParser { tcx, hir_id }.parse(attr)
 }
+
+// FIXME: change so that it works on annotations in foreign crates
+// pub fn attributes_for_id(tcx: TyCtxt<'_>, def_id: DefId) -> Vec<RedpenAttribute> {
+//     let Some(local_id) = accessee.def_id().as_local() else {
+//         return vec![];
+//     };
+//     let hir_id = cx.tcx.local_def_id_to_hir_id(local_id);
+//     let mut consider_blocking = false;
+
+//     cx.tcx
+//         .hir()
+//         .attrs(hir_id)
+//         .filter_map(|attr| parse_redpen_attribute(cx.tcx, hir_id, attr))
+//         .collect()
+// }

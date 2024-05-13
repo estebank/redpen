@@ -5,7 +5,7 @@ warning: calling `main` can unsafe
     |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this can unsafe
     |
 note: `alloc::alloc::exchange_malloc` can unsafe here
-   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/alloc.rs:241:9
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/alloc.rs:241:9
     |
 241 |         self.alloc_impl(layout, false)
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -13,7 +13,7 @@ note: `alloc::alloc::exchange_malloc` can unsafe here
 328 | unsafe fn exchange_malloc(size: usize, align: usize) -> *mut u8 {
     | ---------------------------------------------------------------
 note: `std::alloc::Global::alloc_impl` can unsafe here
-   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/alloc.rs:98:9
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/alloc.rs:98:9
     |
 98  |         __rust_alloc(layout.size(), layout.align())
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -32,7 +32,7 @@ warning: calling `main` can unsafe
     |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this can unsafe
     |
 note: `alloc::alloc::exchange_malloc` can unsafe here
-   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/alloc.rs:241:9
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/alloc.rs:241:9
     |
 241 |         self.alloc_impl(layout, false)
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -40,7 +40,7 @@ note: `alloc::alloc::exchange_malloc` can unsafe here
 328 | unsafe fn exchange_malloc(size: usize, align: usize) -> *mut u8 {
     | ---------------------------------------------------------------
 note: `std::alloc::Global::alloc_impl` can unsafe here
-   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/alloc.rs:98:9
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/alloc.rs:98:9
     |
 98  |         __rust_alloc(layout.size(), layout.align())
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -58,7 +58,7 @@ warning: calling `main` can unsafe
     | ^ this can unsafe
     |
 note: `std::ptr::drop_in_place::<std::vec::Vec<Pizza<&Pizza<&Pineapple>>>>` can unsafe here
-   --> /home/gh-estebank/.rustup/toolchains/nightly-2023-09-04-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/mod.rs:497:1
+   --> /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/mod.rs:497:1
     |
 497 | pub unsafe fn drop_in_place<T: ?Sized>(to_drop: *mut T) {
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
