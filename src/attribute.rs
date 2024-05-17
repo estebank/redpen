@@ -3,8 +3,8 @@ use std::collections::HashSet;
 use rustc_ast::tokenstream::{self, TokenTree};
 use rustc_ast::{ast, token};
 use rustc_errors::{Diag, ErrorGuaranteed};
-use rustc_hir::HirId;
 use rustc_middle::ty::TyCtxt;
+use rustc_span::def_id::DefId;
 use rustc_span::symbol::Ident;
 use rustc_span::Span;
 
@@ -48,26 +48,26 @@ impl<'a> Cursor<'a> {
 
 struct AttrParser<'tcx> {
     tcx: TyCtxt<'tcx>,
-    hir_id: HirId,
+    // hir_id: HirId,
 }
 
 impl<'tcx> AttrParser<'tcx> {
     fn error(
         &self,
         span: Span,
-        decorate: impl for<'a, 'b> FnOnce(&'b mut Diag<'a, ()>),
+        _decorate: impl for<'a, 'b> FnOnce(&'b mut Diag<'a, ()>),
     ) -> Result<!, ErrorGuaranteed> {
-        self.tcx.node_span_lint(
-            crate::INCORRECT_ATTRIBUTE,
-            self.hir_id,
-            span,
-            "incorrect usage of `#[kint::preempt_count]`",
-            decorate,
-        );
+        // self.tcx.node_span_lint(
+        //     crate::INCORRECT_ATTRIBUTE,
+        //     self.hir_id,
+        //     span,
+        //     "incorrect usage of `redpen` attribute",
+        //     decorate,
+        // );
         Err(self
             .tcx
             .dcx()
-            .span_delayed_bug(span, "incorrect usage of `#[kint::preempt_count]`"))
+            .span_delayed_bug(span, "incorrect usage of `#[redpen]`"))
     }
 
     fn parse_comma_delimited(
@@ -265,13 +265,13 @@ impl<'tcx> AttrParser<'tcx> {
             return None;
         };
         if item.path.segments.len() != 2 {
-            self.tcx.node_span_lint(
-                crate::INCORRECT_ATTRIBUTE,
-                self.hir_id,
-                attr.span,
-                "invalid redpen attribute",
-                |_| (),
-            );
+            // self.tcx.node_span_lint(
+            //     crate::INCORRECT_ATTRIBUTE,
+            //     self.hir_id,
+            //     attr.span,
+            //     "invalid redpen attribute",
+            //     |_| (),
+            // );
             return None;
         }
         match item.path.segments[1].ident.name {
@@ -288,38 +288,32 @@ impl<'tcx> AttrParser<'tcx> {
                 self.parse_list(attr, item).ok()?,
             )),
             _ => {
-                self.tcx.node_span_lint(
-                    crate::INCORRECT_ATTRIBUTE,
-                    self.hir_id,
-                    item.path.segments[1].span(),
-                    "unrecognized redpen attribute",
-                    |_| (),
-                );
+                // self.tcx.node_span_lint(
+                //     crate::INCORRECT_ATTRIBUTE,
+                //     self.hir_id,
+                //     item.path.segments[1].span(),
+                //     "unrecognized redpen attribute",
+                //     |_| (),
+                // );
                 None
             }
         }
     }
 }
 
-pub fn parse_redpen_attribute(
-    tcx: TyCtxt<'_>,
-    hir_id: HirId,
-    attr: &ast::Attribute,
-) -> Option<RedpenAttribute> {
-    AttrParser { tcx, hir_id }.parse(attr)
+pub fn parse_redpen_attribute(tcx: TyCtxt<'_>, attr: &ast::Attribute) -> Option<RedpenAttribute> {
+    AttrParser { tcx }.parse(attr)
 }
 
-// FIXME: change so that it works on annotations in foreign crates
-// pub fn attributes_for_id(tcx: TyCtxt<'_>, def_id: DefId) -> Vec<RedpenAttribute> {
-//     let Some(local_id) = accessee.def_id().as_local() else {
-//         return vec![];
-//     };
-//     let hir_id = cx.tcx.local_def_id_to_hir_id(local_id);
-//     let mut consider_blocking = false;
+pub fn attributes_for_id(tcx: TyCtxt<'_>, def_id: DefId) -> Vec<(RedpenAttribute, Span)> {
+    // let Some(local_id) = def_id.as_local() else {
+    //     return vec![];
+    // };
+    // let hir_id = tcx.local_def_id_to_hir_id(local_id);
+    // let mut consider_blocking = false;
 
-//     cx.tcx
-//         .hir()
-//         .attrs(hir_id)
-//         .filter_map(|attr| parse_redpen_attribute(cx.tcx, hir_id, attr))
-//         .collect()
-// }
+    tcx.get_attrs_unchecked(def_id)
+        .iter()
+        .filter_map(|attr| parse_redpen_attribute(tcx, attr).map(|a| (a, attr.span)))
+        .collect()
+}

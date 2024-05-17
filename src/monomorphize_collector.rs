@@ -635,10 +635,6 @@ impl<'a, 'tcx> MirVisitor<'tcx> for MirUsedCollector<'a, 'tcx> {
                         .push(create_fn_mono_item(self.tcx, instance, span));
                 }
             }
-            ref x => {
-                info!("not interesting {x:#?}");
-                /* not interesting */
-            }
         }
 
         self.super_rvalue(rvalue, location);

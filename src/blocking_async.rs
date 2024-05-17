@@ -1,13 +1,16 @@
 // FIXME: verify and unify with don't panic.
 
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
+use rustc_errors::{Diag, MultiSpan};
+use rustc_hir::def::DefKind;
 use rustc_lint::{LateContext, LateLintPass, LintContext};
 use rustc_middle::mir::mono::MonoItem;
-use rustc_middle::ty::Instance;
+use rustc_middle::ty::{Instance, TyCtxt};
 use rustc_session::{declare_lint_pass, declare_tool_lint};
+use rustc_span::def_id::DefId;
 use rustc_span::source_map::Spanned;
-use rustc_span::symbol::sym;
 
+use crate::attribute::{attributes_for_id, RedpenAttribute};
 use crate::monomorphize_collector::MonoItemCollectionMode;
 
 declare_tool_lint! {
@@ -21,12 +24,13 @@ declare_lint_pass!(BlockingAsync => [BLOCKING_ASYNC]);
 impl<'tcx> LateLintPass<'tcx> for BlockingAsync {
     fn check_crate(&mut self, cx: &LateContext<'tcx>) {
         info!("blocking async check crate");
+        let tcx = cx.tcx;
         // Collect all mono items to be codegened with this crate. Discard the inline map, it does
         // not contain enough information for us; we will collect them ourselves later.
         //
         // Use eager mode here so dead code is also linted on.
         let mono_items = super::monomorphize_collector::collect_crate_mono_items(
-            cx.tcx,
+            tcx,
             MonoItemCollectionMode::Eager,
         );
         info!("mono items {mono_items:#?}");
@@ -39,7 +43,7 @@ impl<'tcx> LateLintPass<'tcx> for BlockingAsync {
         access_map.for_each_item_and_its_used_items(|accessor, accessees| {
             info!("accessor {accessor:#?}");
             let accessor = match accessor {
-                MonoItem::Static(s) => Instance::mono(cx.tcx, s),
+                MonoItem::Static(s) => Instance::mono(tcx, s),
                 MonoItem::Fn(v) => v,
                 _ => return,
             };
@@ -55,7 +59,7 @@ impl<'tcx> LateLintPass<'tcx> for BlockingAsync {
             for accessee in accessees {
                 info!("accessee node {:#?}", accessee.node);
                 let accessee_node = match accessee.node {
-                    MonoItem::Static(s) => Instance::mono(cx.tcx, s),
+                    MonoItem::Static(s) => Instance::mono(tcx, s),
                     MonoItem::Fn(v) => v,
                     _ => return,
                 };
@@ -63,7 +67,7 @@ impl<'tcx> LateLintPass<'tcx> for BlockingAsync {
                 // For const-evaluated items, they're collected from miri, which does not have span
                 // information. Synthesize one with the accessor.
                 let span = if accessee.span.is_dummy() {
-                    *def_span.get_or_insert_with(|| cx.tcx.def_span(accessor.def_id()))
+                    *def_span.get_or_insert_with(|| tcx.def_span(accessor.def_id()))
                 } else {
                     accessee.span
                 };
@@ -85,33 +89,23 @@ impl<'tcx> LateLintPass<'tcx> for BlockingAsync {
 
         info!("backward accessees {backward:#?}");
         for accessee in backward.keys() {
-            let name = cx.tcx.def_path_str(accessee.def_id());
-            info!("{name}");
-            // if crate::attribute::attributes_for_id(accessee.def_id()).
-            if (if let Some(local_id) = accessee.def_id().as_local() {
-                let hir_id = cx.tcx.local_def_id_to_hir_id(local_id);
-                let mut consider_blocking = false;
-                for attr in cx.tcx.hir().attrs(hir_id) {
-                    // println!("{attr:#?}");
-                    if let Some(crate::attribute::RedpenAttribute::AssumeBad(name)) =
-                        crate::attribute::parse_redpen_attribute(cx.tcx, hir_id, attr)
-                        && name.contains("blocking_async")
-                    {
-                        consider_blocking = true;
-                    }
-                }
-                consider_blocking
-            } else {
-                println!("{name}");
-                match name.as_str() {
-                    "std::io::_print" => true,
-                    "dependency::blocking" => true,
-
-                    // "std::fmt::Write::write_fmt" => true,
-                    _ => false,
-                }
-            }) {
-                // visited.insert(*accessee);
+            let name = tcx.def_path_str(accessee.def_id());
+            if attributes_for_id(tcx, accessee.def_id())
+                .into_iter()
+                .any(|(attr, _span)| {
+                    matches!(
+                        attr,
+                        RedpenAttribute::AssumeBad(name)
+                        if name.contains("blocking_async")
+                    )
+                })
+                || [
+                    "std::thread::sleep",
+                    "std::io::_print",
+                    "tokio::runtime::Runtime::block_on",
+                ]
+                .contains(&name.as_str())
+            {
                 work_queue.push(*accessee);
             }
         }
@@ -119,14 +113,6 @@ impl<'tcx> LateLintPass<'tcx> for BlockingAsync {
         info!("visited {visited:#?}");
 
         let mut relevant = FxHashSet::default();
-        // for accessee in backward.keys() {
-        //     // Only go-through non-local-copy items.
-        //     // This allows us to not to be concerned about `len()`, `is_empty()`,
-        //     // because they are all inlineable.
-        //     if forward.contains_key(accessee) {
-        //         continue;
-        //     }
-        // }
 
         // Propagate relevant property.
         while let Some(work_item) = work_queue.pop() {
@@ -136,30 +122,19 @@ impl<'tcx> LateLintPass<'tcx> for BlockingAsync {
                 continue;
             }
 
-            let mut consider_non_blocking = false;
-            if let Some(local_id) = work_item.def_id().as_local() {
-                let hir_id = cx.tcx.local_def_id_to_hir_id(local_id);
-                for attr in cx.tcx.hir().attrs(hir_id) {
-                    // println!("{attr:#?}");
-                    if let Some(crate::attribute::RedpenAttribute::AssumeOk(name)) =
-                        crate::attribute::parse_redpen_attribute(cx.tcx, hir_id, attr)
-                        && name.contains("blocking_async")
-                    {
-                        consider_non_blocking = true;
-                    }
-                }
-            };
-            if !consider_non_blocking {
+            if !attributes_for_id(tcx, work_item.def_id())
+                .into_iter()
+                .any(|(attr, _span)| {
+                    matches!(
+                        attr,
+                        RedpenAttribute::AssumeOk(name)
+                        if name.contains("blocking_async")
+                    )
+                })
+            {
                 relevant.insert(work_item);
             }
             visited.insert(work_item);
-
-            info!("marked as relevant and visited");
-
-            // Stop at local items to prevent over-linting
-            // if work_item.def_id().is_local() {
-            //     continue;
-            // }
 
             info!("accessors {:#?}", backward.get(&work_item));
             for accessor in backward.get(&work_item).unwrap_or(&Vec::new()) {
@@ -168,13 +143,8 @@ impl<'tcx> LateLintPass<'tcx> for BlockingAsync {
         }
         info!("relevant {relevant:#?}");
 
+        eprintln!("{forward:#?}");
         for (accessor, accessees) in forward.iter() {
-            let name = cx.tcx.def_path_str(accessor.def_id());
-            info!("{name}");
-            for accessee in accessees {
-                let name = cx.tcx.def_path_str(accessee.node.def_id());
-                info!(" -> {name:#?}");
-            }
             // Don't report on non-local items
             if !accessor.def_id().is_local() {
                 info!("not local accessor");
@@ -186,67 +156,51 @@ impl<'tcx> LateLintPass<'tcx> for BlockingAsync {
                 info!("not relevant");
                 continue;
             }
-            info!("---");
-            if cx.tcx.asyncness(accessor.def_id()).is_async() {
-                info!("is async");
-                // FIXME : here else deny attr
-            } else {
-                info!("not async");
-                // We *only* report against blocking functions in async functions.
+
+            if tcx.asyncness(accessor.def_id()).is_async() {
+                // We'll visit the desugared inner-closure in a bit, skip the outer fn.
                 continue;
             }
+            let accessor_def_id = async_fn_def_id(tcx, accessor.def_id());
+            let accessor_path = tcx.def_path_str(accessor_def_id);
+            let is_generic = accessor
+                .args
+                .non_erasable_generics(tcx, accessor_def_id)
+                .next()
+                .is_some();
+            let generic_note = if is_generic {
+                format!(
+                    " when the caller is monomorphized as `{}`",
+                    tcx.def_path_str_with_args(accessor_def_id, accessor.args)
+                )
+            } else {
+                String::new()
+            };
+            cx.span_lint(
+                &BLOCKING_ASYNC,
+                tcx.def_span(accessor_def_id),
+                format!("function `{accessor_path}` can block{generic_note} {accessor_def_id:?}"),
+                |diag| {
+                    for item in accessees {
+                        let accessee = item.node;
+                        let accessee_def_id = async_fn_def_id(tcx, accessee.def_id());
+                        diag.note(format!("{accessee_def_id:?}"));
+                        if accessee_def_id == accessor_def_id {
+                            // This is the fake "desugared async fn to closure" edge
+                            continue;
+                        }
+                        let name = tcx.def_path_str(accessee_def_id);
 
-            for item in accessees {
-                let accessee = item.node;
-                let name = cx.tcx.def_path_str(accessee.def_id());
-                info!(" -> {name:#?}");
-
-                if accessee.def_id().is_local() {
-                    info!("local");
-                } else {
-                    info!("non local");
-                }
-                if relevant.contains(&accessee) {
-                    info!("relevant");
-                } else {
-                    info!("non relevant");
-                }
-                // if !accessee.def_id().is_local() && relevant.contains(&accessee) {
-                if relevant.contains(&accessee) {
-                    let def_kind = cx.tcx.def_kind(accessee.def_id());
-                    info!("{def_kind:#?}");
-                    let is_generic = accessor
-                        .args
-                        .non_erasable_generics(cx.tcx, accessee.def_id())
-                        .next()
-                        .is_some();
-                    let generic_note = if is_generic {
-                        format!(
-                            " when the caller is monomorphized as `{}`",
-                            cx.tcx
-                                .def_path_str_with_args(accessor.def_id(), accessor.args)
-                        )
-                    } else {
-                        String::new()
-                    };
-
-                    let accessee_path = cx
-                        .tcx
-                        .def_path_str_with_args(accessee.def_id(), accessee.args);
-
-                    cx.span_lint(
-                        &BLOCKING_ASYNC,
-                        item.span,
-                        format!("`{}` can block{}", accessee_path, generic_note),
-                        |diag| {
+                        if relevant.contains(&accessee) {
                             // For generic functions try to display a stacktrace until a non-generic one.
                             let mut caller = *accessor;
                             let mut visited = FxHashSet::default();
                             visited.insert(*accessor);
                             visited.insert(accessee);
+                            let caller_def_id = async_fn_def_id(tcx, caller.def_id());
                             while caller
                                 .args
-                                .non_erasable_generics(cx.tcx, caller.def_id())
+                                .non_erasable_generics(tcx, caller_def_id)
                                 .next()
                                 .is_some()
                             {
@@ -267,14 +221,14 @@ impl<'tcx> LateLintPass<'tcx> for BlockingAsync {
                                     spanned_caller.span,
                                     format!(
                                         "which is called from `{}`",
-                                        cx.tcx.def_path_str_with_args(caller.def_id(), caller.args)
+                                        tcx.def_path_str_with_args(caller.def_id(), caller.args)
                                     ),
                                 );
                             }
 
                             // Generate some help messages for why the function is determined to be relevant.
                             let mut msg: &str =
-                                &format!("`{}` is determined to block because it", accessee_path);
+                                &format!("`{name}` is determined to block because it");
                             let mut callee = accessee;
                             loop {
                                 let callee_callee = match forward
@@ -291,23 +245,46 @@ impl<'tcx> LateLintPass<'tcx> for BlockingAsync {
                                 callee = callee_callee.node;
                                 visited.insert(callee);
 
+                                let callee_def_id = async_fn_def_id(tcx, callee.def_id());
+                                let path = tcx.def_path_str_with_args(callee_def_id, callee.args);
                                 diag.span_note(
                                     callee_callee.span,
-                                    format!(
-                                        "{} calls into `{}`",
-                                        msg,
-                                        cx.tcx.def_path_str_with_args(callee.def_id(), callee.args)
-                                    ),
+                                    format!("{msg} calls into `{path}`"),
                                 );
+                                explicit_attr(tcx, callee_def_id, diag);
                                 msg = "which";
                             }
-                            // FIXME: point at relevant attribute if that's the reason
-
-                            // diag.note(format!("{} may call `alloc_error_handler`", msg));
-                        },
-                    );
-                }
-            }
+                        }
+                    }
+                },
+            );
         }
     }
+}
+
+fn explicit_attr(tcx: TyCtxt<'_>, def_id: DefId, diag: &mut Diag<'_, ()>) {
+    let path = tcx.def_path_str(def_id);
+    for (attr, span) in attributes_for_id(tcx, def_id) {
+        if matches!(
+            attr,
+            RedpenAttribute::AssumeBad(name)
+            if name.contains("blocking_async")
+        ) {
+            let mut span: MultiSpan = span.into();
+            span.push_span_label(tcx.def_span(def_id), "");
+            diag.span_note(span, format!("`{path}` is considered to be blocking because it was explicitly marked as such in the source code"));
+        }
+    }
+}
+
+fn async_fn_def_id(tcx: TyCtxt<'_>, def_id: DefId) -> DefId {
+    if tcx.is_closure_like(def_id)
+        && let parent = tcx.parent(def_id)
+        && let DefKind::Fn = tcx.def_kind(parent)
+        && tcx.asyncness(parent).is_async()
+    {
+        // We want to refer to the `async fn` name, not its desugared inner-closure.
+        return parent;
+    }
+    def_id
 }

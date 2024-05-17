@@ -26,7 +26,7 @@ async fn bal() {
 }
 // async fn foo(closure: impl Fn()) {
 async fn foo() {
-    // bar().await;
+    bar().await;
     // baz().await;
     // println!("Hello, stdout!");
     // interesting();
