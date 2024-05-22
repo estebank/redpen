@@ -1,25 +1,33 @@
-warning: async function `foo` can block
-  --> $DIR/blocking-calls-in-async.rs:28:1
+warning: async function `multiple` can block
+  --> $DIR/blocking-calls-in-async.rs:62:1
    |
-28 | async fn foo() {
-   | ^^^^^^^^^^^^^^
-29 |     bar().await;
+62 | async fn multiple() {
+   | ^^^^^^^^^^^^^^^^^^^
+63 |     bar().await;
    |           ----- this might block
-30 |     // bar().await;
-31 |     std::thread::sleep(std::time::Duration::from_millis(1));
+64 |     blocks_on_sleep().await;
+   |                       ----- this might block
+65 |     std::thread::sleep(std::time::Duration::from_millis(1));
    |     ------------------------------------------------------- this might block
    |
    = note: `std::thread::sleep` is known to be blocking
    = note: `#[warn(redpen::blocking_async)]` on by default
 
 warning: async function `bar` can block
-  --> $DIR/blocking-calls-in-async.rs:18:1
+  --> $DIR/blocking-calls-in-async.rs:19:1
    |
-18 | async fn bar() {
+19 | async fn bar() {
    | ^^^^^^^^^^^^^^
-19 |     interesting();
-   |     ------------- this might block
+20 |     transitive();
+   |     ------------ this might block
    |
+note: `transitive` is considered to block due to these calls
+  --> $DIR/blocking-calls-in-async.rs:14:1
+   |
+14 | fn transitive() {
+   | ^^^^^^^^^^^^^^^
+15 |     interesting();
+   |     ------------- this might block
 note: `interesting` is considered to block because it was explicitly marked as such in the source code
   --> $DIR/blocking-calls-in-async.rs:5:1
    |
@@ -28,5 +36,53 @@ note: `interesting` is considered to block because it was explicitly marked as s
 6  | fn interesting() {}
    | ----------------
 
-warning: 2 warnings emitted
+warning: async function `bal` can block
+  --> $DIR/blocking-calls-in-async.rs:29:1
+   |
+29 | async fn bal() {
+   | ^^^^^^^^^^^^^^
+
+warning: async function `indirect` can block
+  --> $DIR/blocking-calls-in-async.rs:48:1
+   |
+48 | async fn indirect() {
+   | ^^^^^^^^^^^^^^^^^^^
+49 |     bar().await;
+   |           ----- this might block
+50 |     bar().await;
+   |           ----- this might block
+   |
+note: `bar` is considered to block due to these calls
+  --> $DIR/blocking-calls-in-async.rs:19:1
+   |
+19 | async fn bar() {
+   | ^^^^^^^^^^^^^^
+20 |     transitive();
+   |     ------------ this might block
+note: `transitive` is considered to block due to these calls
+  --> $DIR/blocking-calls-in-async.rs:14:1
+   |
+14 | fn transitive() {
+   | ^^^^^^^^^^^^^^^
+15 |     interesting();
+   |     ------------- this might block
+note: `interesting` is considered to block because it was explicitly marked as such in the source code
+  --> $DIR/blocking-calls-in-async.rs:5:1
+   |
+5  | #[redpen::assume_bad("blocking_async")]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6  | fn interesting() {}
+   | ----------------
+
+warning: async function `blocks_on_sleep` can block
+  --> $DIR/blocking-calls-in-async.rs:33:1
+   |
+33 | async fn blocks_on_sleep() {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+34 |     std::thread::sleep(std::time::Duration::from_millis(1));
+   |     ------------------------------------------------------- this might block
+   |
+   = note: `std::thread::sleep` is known to be blocking
+
+warning: 5 warnings emitted
 

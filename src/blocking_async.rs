@@ -19,8 +19,27 @@ declare_tool_lint! {
 }
 
 const KNOWN_BLOCKING: &[&str] = &[
-    "std::thread::sleep",
+    "std::fs::copy",
+    "std::fs::create_dir",
+    "std::fs::create_dir_all",
+    "std::fs::hard_link",
+    "std::fs::metadata",
+    "std::fs::read",
+    "std::fs::read_dir",
+    "std::fs::read_link",
+    "std::fs::read_to_string",
+    "std::fs::remove_dir",
+    "std::fs::remove_dir_all",
+    "std::fs::remove_file",
+    "std::fs::rename",
+    "std::fs::set_permissions",
+    "std::fs::soft_link",
+    "std::fs::symlink_metadata",
+    "std::fs::try_exists",
+    "std::fs::write",
     "std::io::_print",
+    "std::io::Stdout::write",
+    "std::thread::sleep",
     "tokio::runtime::Runtime::block_on",
 ];
 
@@ -218,6 +237,11 @@ fn describe<'tcx>(
     let mut visited = FxHashSet::default();
     let mut spans = vec![];
     for call in calls {
+        let name = tcx.def_path_str(call.node.def_id());
+        let path = def_path(tcx, call.node.def_id());
+        // if name != path && !call.node.def_id().is_local() {
+        //     diag.note(format!("canonical path differs from user visible path: {path} -> {name}"));
+        // }
         let call_def_id = async_fn_def_id(tcx, call.node.def_id());
         // if call_def_id == accessor_def_id {
         //     // Is this indeed needed? I don't think so anymore.
@@ -241,8 +265,7 @@ fn describe<'tcx>(
             // Beginning of the chain, add the label to the main sub-diagnostic.
             diag.span_label(call.span, "this might block");
         }
-        if KNOWN_BLOCKING.contains(&def_path(tcx, call.node.def_id()).as_str()) {
-            let name = tcx.def_path_str(call.node.def_id());
+        if KNOWN_BLOCKING.contains(&path.as_str()) {
             diag.note(format!("`{name}` is known to be blocking"));
         }
     }
