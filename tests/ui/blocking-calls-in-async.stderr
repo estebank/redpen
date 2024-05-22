@@ -1,9 +1,15 @@
-warning: async function `bal` can block
-  --> $DIR/blocking-calls-in-async.rs:24:1
+warning: async function `foo` can block
+  --> $DIR/blocking-calls-in-async.rs:28:1
    |
-24 | async fn bal() {
+28 | async fn foo() {
    | ^^^^^^^^^^^^^^
+29 |     bar().await;
+   |           ----- this might block
+30 |     // bar().await;
+31 |     std::thread::sleep(std::time::Duration::from_millis(1));
+   |     ------------------------------------------------------- this might block
    |
+   = note: `std::thread::sleep` is known to be blocking
    = note: `#[warn(redpen::blocking_async)]` on by default
 
 warning: async function `bar` can block
@@ -11,13 +17,10 @@ warning: async function `bar` can block
    |
 18 | async fn bar() {
    | ^^^^^^^^^^^^^^
-   |
-note: `bar` is determined to block because it calls into `interesting`
-  --> $DIR/blocking-calls-in-async.rs:19:5
-   |
 19 |     interesting();
-   |     ^^^^^^^^^^^^^
-note: `interesting` is considered to be blocking because it was explicitly marked as such in the source code
+   |     ------------- this might block
+   |
+note: `interesting` is considered to block because it was explicitly marked as such in the source code
   --> $DIR/blocking-calls-in-async.rs:5:1
    |
 5  | #[redpen::assume_bad("blocking_async")]
@@ -25,37 +28,5 @@ note: `interesting` is considered to be blocking because it was explicitly marke
 6  | fn interesting() {}
    | ----------------
 
-warning: async function `foo` can block
-  --> $DIR/blocking-calls-in-async.rs:28:1
-   |
-28 | async fn foo() {
-   | ^^^^^^^^^^^^^^
-   |
-note: `foo` is determined to block because it calls into `bar`
-  --> $DIR/blocking-calls-in-async.rs:29:5
-   |
-29 |     bar().await;
-   |     ^^^^^
-note: which calls into `bar::{closure#0}`
-  --> $DIR/blocking-calls-in-async.rs:18:16
-   |
-18 |   async fn bar() {
-   |  ________________^
-19 | |     interesting();
-20 | | }
-   | |_^
-note: which calls into `interesting`
-  --> $DIR/blocking-calls-in-async.rs:19:5
-   |
-19 |     interesting();
-   |     ^^^^^^^^^^^^^
-note: `interesting` is considered to be blocking because it was explicitly marked as such in the source code
-  --> $DIR/blocking-calls-in-async.rs:5:1
-   |
-5  | #[redpen::assume_bad("blocking_async")]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-6  | fn interesting() {}
-   | ----------------
-
-warning: 3 warnings emitted
+warning: 2 warnings emitted
 

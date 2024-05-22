@@ -27,7 +27,8 @@ async fn bal() {
 // async fn foo(closure: impl Fn()) {
 async fn foo() {
     bar().await;
-    // baz().await;
+    // bar().await;
+    std::thread::sleep(std::time::Duration::from_millis(1));
     // println!("Hello, stdout!");
     // interesting();
     // closure();
