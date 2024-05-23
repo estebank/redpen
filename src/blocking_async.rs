@@ -156,7 +156,10 @@ impl<'tcx> LateLintPass<'tcx> for BlockingAsync {
         }
 
         // eprintln!("{forward:#?}");
-        for (accessor, accessees) in forward.iter() {
+        let mut accessors: Vec<_> = forward.keys().collect();
+        accessors.sort_by_key(|accessor| tcx.def_span(accessor.def_id()));
+        for accessor in accessors {
+            let accessees = &forward[accessor];
             // Don't report on non-local items
             info!(?accessor);
             if !accessor.def_id().is_local() {
