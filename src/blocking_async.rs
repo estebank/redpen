@@ -41,6 +41,7 @@ const KNOWN_BLOCKING: &[&str] = &[
     "std::io::_print",
     "std::io::_::write",
     "std::thread::sleep",
+    "std::thread::_::join",
     "std::sync::mutex::_::lock",
     "std::sync::mutex::_::try_lock",
     "tokio::runtime::_::block_on",
