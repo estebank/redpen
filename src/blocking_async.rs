@@ -43,7 +43,7 @@ const KNOWN_BLOCKING: &[&str] = &[
     "std::thread::sleep",
     "std::sync::mutex::_::lock",
     "std::sync::mutex::_::try_lock",
-    "tokio::runtime::Runtime::block_on",
+    "tokio::runtime::_::block_on",
 ];
 
 declare_lint_pass!(BlockingAsync => [BLOCKING_ASYNC]);
