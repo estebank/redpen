@@ -39,7 +39,7 @@ const KNOWN_BLOCKING: &[&str] = &[
     "std::fs::try_exists",
     "std::fs::write",
     "std::io::_print",
-    "std::io::Stdout::write",
+    "std::io::_::write",
     "std::thread::sleep",
     "std::sync::mutex::_::lock",
     "std::sync::mutex::_::try_lock",
