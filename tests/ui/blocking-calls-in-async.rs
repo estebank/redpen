@@ -34,6 +34,13 @@ async fn blocks_on_sleep() {
     std::thread::sleep(std::time::Duration::from_millis(1));
 }
 
+async fn std_mutex() {
+    let m = std::sync::Mutex::new(());
+    // This can lead to deadlocks if the lock goes past an await point. We would want more accurate
+    // checking, confirming that it actually would lock, but this works as a first approximation.
+    let _x = m.lock();
+}
+
 // FIXME: this should trigger
 async fn asdf() -> io::Result<()> {
     let mut stdout = io::stdout().lock();

@@ -8,6 +8,7 @@ use rustc_middle::ty::{Instance, TyCtxt};
 use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::def_id::{DefId, LOCAL_CRATE};
 use rustc_span::source_map::Spanned;
+use std::fmt::Write;
 
 use crate::attribute::{attributes_for_id, RedpenAttribute};
 use crate::monomorphize_collector::MonoItemCollectionMode;
@@ -40,6 +41,8 @@ const KNOWN_BLOCKING: &[&str] = &[
     "std::io::_print",
     "std::io::Stdout::write",
     "std::thread::sleep",
+    "std::sync::mutex::_::lock",
+    "std::sync::mutex::_::try_lock",
     "tokio::runtime::Runtime::block_on",
 ];
 
@@ -218,11 +221,13 @@ pub fn def_path(tcx: TyCtxt<'_>, def_id: DefId) -> String {
         let cstore = &*tcx.cstore_untracked();
         cstore.crate_name(def_id.krate)
     };
-
-    format!(
-        "{crate_name}{}",
-        tcx.def_path(def_id).to_string_no_crate_verbose()
-    )
+    let def_path = tcx.def_path(def_id);
+    let mut s = String::with_capacity(def_path.data.len() * 16);
+    write!(s, "{crate_name}").unwrap();
+    for component in def_path.data {
+        write!(s, "::{}", component.data.get_opt_name().as_ref().map(|n| n.as_str()).unwrap_or("_")).unwrap();
+    }
+    s
 }
 
 fn describe<'tcx>(
