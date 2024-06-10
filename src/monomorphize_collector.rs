@@ -129,6 +129,7 @@ pub fn collect_crate_mono_items(
         tcx.sess.time("monomorphization_collector_graph_walk", || {
             par_for_each_in(roots, |root| {
                 let mut recursion_depths = DefIdMap::default();
+                // Look only at public fns?
                 let should_gen = match root {
                     MonoItem::Static(def_id) => {
                         let instance = Instance::mono(tcx, def_id);
@@ -489,16 +490,17 @@ struct MirUsedCollector<'a, 'tcx> {
 }
 
 impl<'a, 'tcx> MirUsedCollector<'a, 'tcx> {
-    pub fn monomorphize<T>(&self, value: T) -> T
+    pub fn monomorphize<T>(&self, value: T, desc: &'static str) -> T
     where
         T: TypeFoldable<TyCtxt<'tcx>>,
     {
         debug!("monomorphize: self.instance={:?}", self.instance);
-        self.instance.instantiate_mir_and_normalize_erasing_regions(
+        let msg = format!("{desc} {value:#?} {:#?}", self.instance);
+        self.instance.try_instantiate_mir_and_normalize_erasing_regions(
             self.tcx,
             ty::ParamEnv::reveal_all(),
             ty::EarlyBinder::bind(value),
-        )
+        ).expect(&msg)
     }
 }
 
@@ -518,9 +520,9 @@ impl<'a, 'tcx> MirVisitor<'tcx> for MirUsedCollector<'a, 'tcx> {
                 target_ty,
             )
             | mir::Rvalue::Cast(mir::CastKind::DynStar, ref operand, target_ty) => {
-                let target_ty = self.monomorphize(target_ty);
+                let target_ty = self.monomorphize(target_ty, "cast target");
                 let source_ty = operand.ty(self.body, self.tcx);
-                let source_ty = self.monomorphize(source_ty);
+                let source_ty = self.monomorphize(source_ty, "cast source");
                 let (source_ty, target_ty) = find_vtable_types_for_unsizing(
                     self.tcx.at(span),
                     ty::ParamEnv::reveal_all(),
@@ -548,7 +550,7 @@ impl<'a, 'tcx> MirVisitor<'tcx> for MirUsedCollector<'a, 'tcx> {
                 _,
             ) => {
                 let fn_ty = operand.ty(self.body, self.tcx);
-                let fn_ty = self.monomorphize(fn_ty);
+                let fn_ty = self.monomorphize(fn_ty, "cast fn ptr coercion");
                 visit_fn_use(self.tcx, fn_ty, false, span, &mut self.output);
             }
             mir::Rvalue::Cast(
@@ -557,7 +559,7 @@ impl<'a, 'tcx> MirVisitor<'tcx> for MirUsedCollector<'a, 'tcx> {
                 _,
             ) => {
                 let source_ty = operand.ty(self.body, self.tcx);
-                let source_ty = self.monomorphize(source_ty);
+                let source_ty = self.monomorphize(source_ty, "cast closure fn ptr coercion");
                 match *source_ty.kind() {
                     ty::Closure(def_id, args) => {
                         let instance = Instance::resolve_closure(
@@ -619,6 +621,7 @@ impl<'a, 'tcx> MirVisitor<'tcx> for MirUsedCollector<'a, 'tcx> {
             mir::Rvalue::Aggregate(ref kind, ref indexvec) => {
                 info!("aggregate {kind:#?} {indexvec:#?}");
                 if let mir::AggregateKind::Coroutine(def_id, args) = **kind {
+                    info!("{kind:#?} {indexvec:#?}");
                     // self.output.push(respan(span, MonoItem::Static(def_id)));
                     // let param_env = ty::ParamEnv::reveal_all();
                     //             let instance = Instance::resolve_for_fn_ptr(
@@ -631,8 +634,12 @@ impl<'a, 'tcx> MirVisitor<'tcx> for MirUsedCollector<'a, 'tcx> {
                     //                 .push(create_fn_mono_item(self.tcx, instance, span));
 
                     let instance = Instance::new(def_id, args);
+                    let param_env = ty::ParamEnv::reveal_all();
+                    if let Ok(Some(_)) = Instance::resolve(self.tcx, param_env, def_id, args) {
+                    // HERE!
                     self.output
                         .push(create_fn_mono_item(self.tcx, instance, span));
+                    }
                 }
             }
         }
@@ -644,7 +651,7 @@ impl<'a, 'tcx> MirVisitor<'tcx> for MirUsedCollector<'a, 'tcx> {
     /// to walk it would attempt to evaluate the `ty::Const` inside, which doesn't necessarily
     /// work, as some constants cannot be represented in the type system.
     fn visit_constant(&mut self, constant: &mir::ConstOperand<'tcx>, location: Location) {
-        let const_ = self.monomorphize(constant.const_);
+        let const_ = self.monomorphize(constant.const_, "const");
         let param_env = ty::ParamEnv::reveal_all();
         let val = match const_.eval(self.tcx, param_env, constant.span) {
             Ok(v) => v,
@@ -675,19 +682,19 @@ impl<'a, 'tcx> MirVisitor<'tcx> for MirUsedCollector<'a, 'tcx> {
         match terminator.kind {
             mir::TerminatorKind::Call { ref func, .. } => {
                 let callee_ty = func.ty(self.body, tcx);
-                let callee_ty = self.monomorphize(callee_ty);
+                let callee_ty = self.monomorphize(callee_ty, "call callee");
                 visit_fn_use(self.tcx, callee_ty, true, source, &mut self.output)
             }
             mir::TerminatorKind::Drop { ref place, .. } => {
                 let ty = place.ty(self.body, self.tcx).ty;
-                let ty = self.monomorphize(ty);
+                let ty = self.monomorphize(ty, "drop");
                 visit_drop_use(self.tcx, ty, true, source, self.output);
             }
             mir::TerminatorKind::InlineAsm { ref operands, .. } => {
                 for op in operands {
                     match *op {
                         mir::InlineAsmOperand::SymFn { ref value } => {
-                            let fn_ty = self.monomorphize(value.const_.ty());
+                            let fn_ty = self.monomorphize(value.const_.ty(), "inline asm sym fn");
                             visit_fn_use(self.tcx, fn_ty, false, source, &mut self.output);
                         }
                         mir::InlineAsmOperand::SymStatic { def_id } => {
@@ -969,7 +976,8 @@ fn create_fn_mono_item<'tcx>(
     instance: Instance<'tcx>,
     source: Span,
 ) -> Spanned<MonoItem<'tcx>> {
-    respan(source, MonoItem::Fn(instance.polymorphize(tcx)))
+    // respan(source, MonoItem::Fn(instance.polymorphize(tcx)))
+    respan(source, MonoItem::Fn(instance))
 }
 
 /// Creates a `MonoItem` for each method that is referenced by the vtable for
@@ -1070,6 +1078,9 @@ impl<'v> RootCollector<'_, 'v> {
             DefKind::Fn => {
                 self.push_if_root(id.owner_id.def_id);
             }
+            // DefKind::TyAlias => {
+            //     error!("ty alias {id:#?}");
+            // }
             other => {
                 info!("unprocessed item {other:#?}");
             }

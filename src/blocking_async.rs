@@ -3,8 +3,9 @@ use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_errors::{Diag, MultiSpan};
 use rustc_hir::def::DefKind;
 use rustc_lint::{LateContext, LateLintPass, LintContext};
-use rustc_middle::mir::mono::MonoItem;
-use rustc_middle::ty::{Instance, TyCtxt};
+use rustc_middle::mir::{self, mono::MonoItem};
+use rustc_middle::query::Key;
+use rustc_middle::ty::{self, Instance, TyCtxt};
 use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::def_id::{DefId, LOCAL_CRATE};
 use rustc_span::source_map::Spanned;
@@ -53,39 +54,161 @@ impl<'tcx> LateLintPass<'tcx> for BlockingAsync {
     fn check_crate(&mut self, cx: &LateContext<'tcx>) {
         info!("blocking async check crate");
         let tcx = cx.tcx;
+        // let asdf = tcx.collect_and_partition_mono_items(());
+
+        let (all_mono_items, cgus) = tcx.collect_and_partition_mono_items(());
+    
+        // {
+        //     let (all_mono_items, cgus) = tcx.collect_and_partition_mono_items(());
+        //     // error!("{all_mono_items:#?}");
+        
+        //     // Obtain a MIR body for each function participating in codegen, via an
+        //     // arbitrary instance.
+        //     let mut def_ids_seen = FxHashSet::default();
+        //     let def_and_mir_for_all_mono_fns = cgus
+        //         .iter()
+        //         .flat_map(|cgu| cgu.items().keys())
+        //         .filter_map(|item| match item {
+        //             mir::mono::MonoItem::Fn(instance) => Some(instance),
+        //             mir::mono::MonoItem::Static(_) | mir::mono::MonoItem::GlobalAsm(_) => None,
+        //         })
+        //         // We only need one arbitrary instance per definition.
+        //         .filter(move |instance| def_ids_seen.insert(instance.def_id()))
+        //         .map(|instance| {
+        //             // We don't care about the instance, just its underlying MIR.
+        //             let body = tcx.instance_mir(instance.def);
+        //             (instance.def_id(), body)
+        //         });
+        
+        //     // Functions whose coverage statments were found inlined into other functions.
+        //     let mut used_via_inlining = FxHashSet::default();
+        //     // Functions that were instrumented, but had all of their coverage statements
+        //     // removed by later MIR transforms (e.g. UnreachablePropagation).
+        //     let mut missing_own_coverage = FxHashSet::default();
+        
+        //     let mut mentioned_items = Vec::default();
+        //     for (def_id, body) in def_and_mir_for_all_mono_fns {
+        //         let mut saw_own_coverage = false;
+        //         // error!(?def_id);
+        //         // error!("{:#?}", body);
+        
+        //         for mentioned in &body.mentioned_items {
+        //             mentioned_items.push(mentioned);
+        //         }
+        //         // Inspect every coverage statement in the function's MIR.
+        //         for stmt in body
+        //             .basic_blocks
+        //             .iter()
+        //             .flat_map(|block| &block.statements)
+        //             // .filter(|stmt| matches!(stmt.kind, mir::StatementKind::Coverage(_)))
+        //         {
+        //             // error!(?stmt);
+        //             if let Some(inlined) = stmt.source_info.scope.inlined_instance(&body.source_scopes) {
+        //                 // This coverage statement was inlined from another function.
+        //                 used_via_inlining.insert(inlined.def_id());
+        //             } else {
+        //                 // Non-inlined coverage statements belong to the enclosing function.
+        //                 saw_own_coverage = true;
+        //             }
+        //         }
+        
+        //         if !saw_own_coverage && body.function_coverage_info.is_some() {
+        //             missing_own_coverage.insert(def_id);
+        //         }
+        //     }
+        
+        //     // error!("{:#?}", all_mono_items);
+        //     // error!("{:#?}", used_via_inlining);
+        //     // error!("{:#?}", missing_own_coverage);
+        //     error!("{:#?}", mentioned_items);
+        // }
+
+        // let asdf = rustc_monomorphize::collector::collect_crate_mono_items(tcx, MonoItemCollectionMode::Eager);
+        // error!("{:#?}", asdf);
+        // return;
         // Collect all mono items to be codegened with this crate. Discard the inline map, it does
         // not contain enough information for us; we will collect them ourselves later.
         //
         // Use eager mode here so dead code is also linted on.
-        let mono_items = super::monomorphize_collector::collect_crate_mono_items(
-            tcx,
-            MonoItemCollectionMode::Eager,
-        );
-        info!("mono items {mono_items:#?}");
-        let access_map = mono_items.1;
+        // let mono_items = super::monomorphize_collector::collect_crate_mono_items(
+        //     tcx,
+        //     MonoItemCollectionMode::Eager,
+        // );
+        // info!("mono items {mono_items:#?}");
+        // let access_map = mono_items.1;
 
         // Build a forward and backward dependency graph with span information.
-        let mut forward = FxHashMap::default();
-        let mut backward = FxHashMap::<_, Vec<_>>::default();
 
-        access_map.for_each_item_and_its_used_items(|accessor, accessees| {
-            let accessor = match accessor {
-                MonoItem::Static(s) => Instance::mono(tcx, s),
-                MonoItem::Fn(v) => v,
-                _ => return,
-            };
+        let mut forward = FxHashMap::default();
+        let mut backward = FxHashMap::<Instance<'_>, Vec<Spanned<Instance<'_>>>>::default();
+
+        // access_map.for_each_item_and_its_used_items(|accessor, accessees| {
+
+        let def_and_mir_for_all_mono_fns = cgus
+            .iter()
+            .flat_map(|cgu| cgu.items().keys())
+            .filter_map(|item| match item {
+                mir::mono::MonoItem::Fn(instance) => Some(instance),
+                mir::mono::MonoItem::Static(_) | mir::mono::MonoItem::GlobalAsm(_) => None,
+            })
+            .map(|instance| {
+                // We don't care about the instance, just its underlying MIR.
+                let body = tcx.instance_mir(instance.def);
+                // error!("{:#?}", body);
+                (instance, &body.mentioned_items)
+            });
+        
+        for (accessor, accessees) in def_and_mir_for_all_mono_fns {
+            // let accessor = match accessor {
+            //     MonoItem::Static(s) => Instance::mono(tcx, s),
+            //     MonoItem::Fn(v) => v,
+            //     _ => return,
+            // };
 
             let fwd_list = forward
-                .entry(accessor)
+                .entry(*accessor)
                 .or_insert_with(|| Vec::with_capacity(accessees.len()));
 
-            let mut def_span = None;
+            let mut def_span: Option<rustc_span::Span> = None;
 
             for accessee in accessees {
-                let accessee_node = match accessee.node {
-                    MonoItem::Static(s) => Instance::mono(tcx, s),
-                    MonoItem::Fn(v) => v,
-                    _ => return,
+                // let accessee_node = match accessee.node {
+                //     MonoItem::Static(s) => Instance::mono(tcx, s),
+                //     MonoItem::Fn(v) => v,
+                //     _ => return,
+                // };
+                error!(?accessee);
+                let accessee_ty = match accessee.node {
+                    mir::MentionedItem::Fn(ty) => ty,
+                    mir::MentionedItem::Closure(ty) => ty,
+                    // mir::MentionedItem::Drop(ty) => ty,
+                    // MonoItem::Static(s) => Instance::mono(tcx, s),
+                    // MonoItem::Fn(v) => v,
+                    _ => continue,
+                };
+                let accessee_node = match (accessee_ty.kind(), accessee.node) {
+                    (ty::FnDef(def, args), _) => Instance::new(*def, args),
+                    (ty::Coroutine(def, args), _) => Instance::new(*def, args),
+                    (ty::Closure(def, args), _) => Instance::new(*def, args),
+                    (_, mir::MentionedItem::Drop(ty))=> {
+                        let instance = Instance::resolve_drop_in_place(tcx, ty);
+                        // if let Ok(Some(i)) = instance {
+                        //     instance
+                        // } else {
+                        //     continue;
+                        // }
+                        instance
+                    }
+                    // ty::FnPtr(poly) => {
+                    //     error!(?poly, "{:#?}", accessee_ty.fn_sig(tcx));
+                    //     // Instance::new(poly.skip_binder().def_id(), poly.skip_binder().args())
+                    //     continue;
+                    // }
+                    x => {
+                        error!(?x, ?accessee);
+                        continue;
+                    }
+                    _ => continue,
                 };
 
                 // For const-evaluated items, they're collected from miri, which does not have span
@@ -101,11 +224,12 @@ impl<'tcx> LateLintPass<'tcx> for BlockingAsync {
                     span,
                 });
                 backward.entry(accessee_node).or_default().push(Spanned {
-                    node: accessor,
+                    node: *accessor,
                     span,
                 });
             }
-        });
+        // });
+        }
 
         // Find all fallible functions
         let mut visited = FxHashSet::default();
@@ -156,7 +280,7 @@ impl<'tcx> LateLintPass<'tcx> for BlockingAsync {
             }
         }
 
-        // eprintln!("{forward:#?}");
+        // error!("{forward:#?}");
         let mut accessors: Vec<_> = forward.keys().collect();
         accessors.sort_by_key(|accessor| tcx.def_span(accessor.def_id()));
         for accessor in accessors {
@@ -260,7 +384,7 @@ fn describe<'tcx>(
             // This call doesn't block, skip.
             continue;
         }
-        if !tcx.asyncness(call_def_id).is_async() || call_def_id != call.node.def_id() {
+        if !tcx.is_closure_like(call_def_id) && !tcx.asyncness(call_def_id).is_async() || call_def_id != call.node.def_id() {
             // This is a direct fn call to a non-async fn
         } else {
             continue;

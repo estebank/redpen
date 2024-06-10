@@ -1,99 +1,17 @@
-warning: async function `bar` can block
-  --> $DIR/blocking-calls-in-async.rs:19:1
-   |
-19 | async fn bar() {
-   | ^^^^^^^^^^^^^^
-20 |     transitive();
-   |     ------------ this might block
-   |
-note: `transitive` is considered to block due to these calls
-  --> $DIR/blocking-calls-in-async.rs:14:1
-   |
-14 | fn transitive() {
-   | ^^^^^^^^^^^^^^^
-15 |     interesting();
-   |     ------------- this might block
-note: `interesting` is considered to block because it was explicitly marked as such in the source code
-  --> $DIR/blocking-calls-in-async.rs:5:1
-   |
-5  | #[redpen::assume_bad("blocking_async")]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-6  | fn interesting() {}
-   | ----------------
-   = note: `#[warn(redpen::blocking_async)]` on by default
-
-warning: async function `bal` can block
-  --> $DIR/blocking-calls-in-async.rs:29:1
-   |
-29 | async fn bal() {
-   | ^^^^^^^^^^^^^^
-
-warning: async function `blocks_on_sleep` can block
-  --> $DIR/blocking-calls-in-async.rs:33:1
-   |
-33 | async fn blocks_on_sleep() {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^
-34 |     std::thread::sleep(std::time::Duration::from_millis(1));
-   |     ------------------------------------------------------- this might block
-   |
-   = note: `std::thread::sleep` is known to be blocking
-
-warning: async function `std_mutex` can block
-  --> $DIR/blocking-calls-in-async.rs:37:1
-   |
-37 | async fn std_mutex() {
-   | ^^^^^^^^^^^^^^^^^^^^
-...
-41 |     let _x = m.lock();
-   |              -------- this might block
-   |
-   = note: `std::sync::Mutex::<T>::lock` is known to be blocking
-
-warning: async function `indirect` can block
-  --> $DIR/blocking-calls-in-async.rs:55:1
-   |
-55 | async fn indirect() {
-   | ^^^^^^^^^^^^^^^^^^^
-56 |     bar().await;
-   |           ----- this might block
-57 |     bar().await;
-   |           ----- this might block
-   |
-note: `bar` is considered to block due to these calls
-  --> $DIR/blocking-calls-in-async.rs:19:1
-   |
-19 | async fn bar() {
-   | ^^^^^^^^^^^^^^
-20 |     transitive();
-   |     ------------ this might block
-note: `transitive` is considered to block due to these calls
-  --> $DIR/blocking-calls-in-async.rs:14:1
-   |
-14 | fn transitive() {
-   | ^^^^^^^^^^^^^^^
-15 |     interesting();
-   |     ------------- this might block
-note: `interesting` is considered to block because it was explicitly marked as such in the source code
-  --> $DIR/blocking-calls-in-async.rs:5:1
-   |
-5  | #[redpen::assume_bad("blocking_async")]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-6  | fn interesting() {}
-   | ----------------
-
-warning: async function `multiple` can block
-  --> $DIR/blocking-calls-in-async.rs:69:1
-   |
-69 | async fn multiple() {
-   | ^^^^^^^^^^^^^^^^^^^
-70 |     bar().await;
-   |           ----- this might block
-71 |     blocks_on_sleep().await;
-   |                       ----- this might block
-72 |     std::thread::sleep(std::time::Duration::from_millis(1));
-   |     ------------------------------------------------------- this might block
-   |
-   = note: `std::thread::sleep` is known to be blocking
-
-warning: 6 warnings emitted
-
+ERROR rustc_redpen::blocking_async accessee=Spanned { node: UnsizeCast { source_ty: &'{erased} Closure(DefId(1:46 ~ std[c294]::rt::lang_start::{closure#0}), [T/#0, i8, Binder(extern "RustCall" fn(()) -> i32, []), (Binder(fn() -> T/#0, []),)]), target_ty: &'{erased} dyn [Binder(Trait(std::ops::Fn<()>), []), Binder(Projection(ExistentialProjection { def_id: DefId(2:3390 ~ core[719c]::ops::function::FnOnce::Output), args: [()], term: Term::Ty(i32) }), []), Binder(AutoTrait(DefId(2:3139 ~ core[719c]::marker::Sync)), []), Binder(AutoTrait(DefId(2:42098 ~ core[719c]::panic::unwind_safe::RefUnwindSafe)), [])] + '{erased} }, span: /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/rt.rs:159:9: 159:100 (#0) }
+ERROR rustc_redpen::blocking_async accessee=Spanned { node: Fn(FnDef(DefId(1:36 ~ std[c294]::rt::lang_start_internal), [])), span: /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/rt.rs:158:17: 163:6 (#0) }
+ERROR rustc_redpen::blocking_async accessee=Spanned { node: Fn(FnDef(DefId(1:7369 ~ std[c294]::sys_common::backtrace::__rust_begin_short_backtrace), [Binder(fn() -> T/#0, []), T/#0])), span: /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/rt.rs:159:18: 159:82 (#0) }
+ERROR rustc_redpen::blocking_async accessee=Spanned { node: Fn(FnDef(DefId(1:5774 ~ std[c294]::process::Termination::report), [T/#0])), span: /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/rt.rs:159:18: 159:91 (#0) }
+ERROR rustc_redpen::blocking_async accessee=Spanned { node: Fn(FnDef(DefId(0:25 ~ blocking_calls_in_async[202a]::bat), [])), span: $DIR/blocking-calls-in-async.rs:89:5: 89:10 (#0) }
+ERROR rustc_redpen::blocking_async accessee=Spanned { node: Fn(FnDef(DefId(0:9 ~ blocking_calls_in_async[202a]::bar), [])), span: $DIR/blocking-calls-in-async.rs:90:13: 90:18 (#0) }
+ERROR rustc_redpen::blocking_async accessee=Spanned { node: Drop(Coroutine(DefId(0:10 ~ blocking_calls_in_async[202a]::bar::{closure#0}), [(), std::future::ResumeTy, (), (), CoroutineWitness(DefId(0:10 ~ blocking_calls_in_async[202a]::bar::{closure#0}), []), ()])), span: $DIR/blocking-calls-in-async.rs:90:18: 90:19 (#0) }
+ERROR rustc_redpen::blocking_async accessee=Spanned { node: Fn(FnDef(DefId(0:27 ~ blocking_calls_in_async[202a]::interesting), [])), span: $DIR/blocking-calls-in-async.rs:84:5: 84:18 (#0) }
+ERROR rustc_redpen::blocking_async accessee=Spanned { node: Fn(FnDef(DefId(2:3391 ~ core[719c]::ops::function::FnOnce::call_once), [F/#0, ()])), span: /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sys_common/backtrace.rs:155:18: 155:21 (#0) }
+ERROR rustc_redpen::blocking_async accessee=Spanned { node: Drop(T/#1), span: /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sys_common/backtrace.rs:161:1: 161:2 (#0) }
+ERROR rustc_redpen::blocking_async accessee=Spanned { node: Fn(FnDef(DefId(2:1737 ~ core[719c]::intrinsics::{extern#2}::black_box), [()])), span: /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/hint.rs:338:5: 338:40 (#0) }
+ERROR rustc_redpen::blocking_async accessee=Spanned { node: Fn(FnDef(DefId(2:3387 ~ core[719c]::ops::function::FnMut::call_mut), [Self/#0, Args/#1])), span: /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5: 250:71 (#0) }
+ERROR rustc_redpen::blocking_async accessee=Spanned { node: Drop(Self/#0), span: /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5: 250:71 (#0) }
+ERROR rustc_redpen::blocking_async accessee=Spanned { node: Drop(Self/#0), span: /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5: 250:71 (#0) }
+ERROR rustc_redpen::blocking_async accessee=Spanned { node: Fn(FnDef(DefId(2:3391 ~ core[719c]::ops::function::FnOnce::call_once), [Self/#0, Args/#1])), span: /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5: 250:71 (#0) }
+ERROR rustc_redpen::blocking_async accessee=Spanned { node: Fn(Binder(fn(), [])), span: /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5: 250:71 (#0) }
+ERROR rustc_redpen::blocking_async x=(Binder(fn(), []), Fn(Binder(fn(), []))), accessee=Spanned { node: Fn(Binder(fn(), [])), span: /home/gh-estebank/.rustup/toolchains/nightly-2024-05-06-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5: 250:71 (#0) }

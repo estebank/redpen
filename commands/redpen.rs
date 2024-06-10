@@ -42,6 +42,7 @@ fn main() {
         .args([
             &format!("+{RUSTC_VERSION}"),
             "build",
+            // "--verbose",
             "-Zbuild-std",
             "--target",
             &target,

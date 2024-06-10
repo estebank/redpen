@@ -18,6 +18,7 @@ extern crate rustc_index;
 extern crate rustc_infer;
 extern crate rustc_interface;
 extern crate rustc_lint;
+extern crate rustc_log;
 extern crate rustc_macros;
 extern crate rustc_middle;
 extern crate rustc_mir_dataflow;
@@ -44,7 +45,7 @@ use std::sync::atomic::Ordering;
 
 mod attribute;
 mod blocking_async;
-mod infallible_allocation;
+// mod reachability;
 mod monomorphize_collector;
 mod symbol;
 
@@ -95,8 +96,8 @@ impl Callbacks for MyCallbacks {
 }
 
 fn main() -> ExitCode {
-    // let handler = EarlyDiagCtxt::new(ErrorOutputType::default());
-    // rustc_driver::init_logger(&handler, "REDPEN_LOG");
+    let handler = EarlyDiagCtxt::new(ErrorOutputType::default());
+    rustc_driver::init_logger(&handler, rustc_log::LoggerConfig::from_env("REDPEN_LOG"));
     let args: Vec<_> = std::env::args().collect();
 
     match rustc_driver::RunCompiler::new(&args, &mut MyCallbacks).run() {

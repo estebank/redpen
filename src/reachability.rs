@@ -11,14 +11,37 @@ use rustc_span::symbol::sym;
 use crate::monomorphize_collector::MonoItemCollectionMode;
 
 declare_tool_lint! {
-    pub redpen::INFALLIBLE_ALLOCATION,
+    pub redpen::REACHABLE,
     Warn,
     ""
 }
 
-declare_lint_pass!(InfallibleAllocation => [INFALLIBLE_ALLOCATION]);
+declare_lint_pass!(Reachable => [REACHABLE]);
 
-impl<'tcx> LateLintPass<'tcx> for InfallibleAllocation {
+const CAN_ALLOC: &[&str] = &[
+    "alloc::alloc::__rust_alloc",
+    "alloc::alloc::__rust_alloc_zeroed",
+    "alloc::alloc::__rust_realloc",
+    "alloc::alloc::__rust_dealloc",
+    // Fallible allocation function
+    "alloc::string::String::try_reserve",
+    "alloc::string::String::try_reserve_exact",
+];
+
+const CAN_PANIC: &[&str] = &[
+    "<usize as std::slice::SliceIndex<[T]>>::index",
+    "<usize as std::slice::SliceIndex<[T]>>::index_mut",
+    "core::panicking::panic_fmt",
+    "core::panicking::panic",
+    "std::rt::panic_fmt",
+];
+
+const REACHABLE_CHECKS: &[(&str, &[&str])] = &[
+    ("allocation", CAN_ALLOC),
+    ("panics", CAN_PANIC),
+];
+
+impl<'tcx> LateLintPass<'tcx> for Reachable {
     fn check_crate(&mut self, cx: &LateContext<'tcx>) {
         // Collect all mono items to be codegened with this crate. Discard the inline map, it does
         // not contain enough information for us; we will collect them ourselves later.
@@ -173,7 +196,7 @@ impl<'tcx> LateLintPass<'tcx> for InfallibleAllocation {
                         .def_path_str_with_args(accessee.def_id(), accessee.args);
 
                     cx.span_lint(
-                        &INFALLIBLE_ALLOCATION,
+                        &REACHABLE
                         item.span,
                         format!(
                             "`{}` can have an allocation failure{}",

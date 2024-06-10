@@ -54,6 +54,8 @@ fn main() {
 
         let output = Command::new("rustc_redpen")
             .args(&args[..])
+            .env("RUSTC_BACKTRACE", "1")
+            .env("RUST_BACKTRACE", "1")
             .output()
             .expect("failed to execute process");
         io::stdout().write_all(&output.stdout).unwrap();

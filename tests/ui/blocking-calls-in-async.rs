@@ -86,4 +86,6 @@ fn bat() {
 
 fn main() {
     // let _ = foo(|| { transitive(); });
+    bat();
+    let _ = bar();
 }
